@@ -73,30 +73,45 @@ export function registerRoutes(app: express.Express) {
       const tempDir = path.join("uploads", `temp_${Date.now()}`);
       await fs.mkdir(tempDir, { recursive: true });
 
-      try {
-        // Process images and create dataset
-        const zipBuffer = await processImages(files, description, tempDir);
-
-        // Generate unique dataset ID and save
-        const datasetId = Date.now().toString();
-        const datasetsDir = path.join("uploads", "datasets");
-        await fs.mkdir(datasetsDir, { recursive: true });
-        
-        const datasetPath = path.join(datasetsDir, `${datasetId}.zip`);
-        await fs.writeFile(datasetPath, zipBuffer);
-
-        res.json({ 
-          success: true,
-          message: "Dataset processed successfully",
-          datasetId 
-        });
-      } finally {
-        // Clean up temporary files
-        await Promise.all([
-          ...files.map(file => fs.unlink(file.path).catch(console.error)),
-          fs.rm(tempDir, { recursive: true }).catch(console.error),
-        ]).catch(console.error);
+      // Use the provided analyses
+      interface Analysis {
+        filename: string;
+        description: string;
       }
+      const analyses: Analysis[] = JSON.parse(req.body.analyses);
+      const entries = files.map((file) => {
+        const analysis = analyses.find((a: Analysis) => a.filename === file.originalname);
+        return {
+          task_type: "text_to_image" as const,
+          instruction: analysis?.description || "An image from the dataset",
+          input_images: [file.originalname],
+          output_image: file.originalname,
+        };
+      });
+
+      // Create ZIP file with JSONL and images
+      const zipBuffer = await processImages(files, entries, tempDir);
+
+      // Generate unique dataset ID
+      const datasetId = Date.now().toString();
+      const datasetsDir = path.join("uploads", "datasets");
+      await fs.mkdir(datasetsDir, { recursive: true });
+      
+      // Store the ZIP file
+      const datasetPath = path.join(datasetsDir, `${datasetId}.zip`);
+      await fs.writeFile(datasetPath, zipBuffer);
+
+      // Clean up temporary files
+      await Promise.all([
+        ...files.map(file => fs.unlink(file.path).catch(console.error)),
+        fs.rm(tempDir, { recursive: true }).catch(console.error),
+      ]).catch(console.error);
+
+      res.json({ 
+        success: true,
+        message: "Dataset processed successfully",
+        datasetId 
+      });
     } catch (error) {
       console.error("Failed to process images:", error);
       res.status(500).json({ 
