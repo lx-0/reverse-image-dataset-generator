@@ -27,6 +27,20 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  app.post("/api/analyze", async (req, res) => {
+    try {
+      const { image, filename } = req.body;
+      const description = await generateDescription("", filename);
+      res.json({ description });
+    } catch (error) {
+      console.error("Failed to analyze image:", error);
+      res.status(500).json({ 
+        error: "Failed to analyze image",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   app.post("/api/process", upload.array("images"), async (req, res) => {
     try {
       const files = req.files as Express.Multer.File[];
