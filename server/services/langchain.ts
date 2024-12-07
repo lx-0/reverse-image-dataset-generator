@@ -9,7 +9,7 @@ Your response should be a single paragraph without any prefixes or explanations.
 export async function generateDescription(context: string, imagePath: string): Promise<string> {
   try {
     const model = new OpenAI({
-      modelName: "gpt-4-vision-preview",
+      modelName: "gpt-4-vision-0125",
       openAIApiKey: process.env.OPENAI_API_KEY,
       maxTokens: 200,
       temperature: 0.7,

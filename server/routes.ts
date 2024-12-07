@@ -30,7 +30,17 @@ export function registerRoutes(app: Express) {
   app.post("/api/analyze", async (req, res) => {
     try {
       const { image, filename } = req.body;
-      const description = await generateDescription("", filename);
+      // Create a temporary file from the base64 image
+      const tempFilePath = path.join('uploads', `temp_${Date.now()}_${filename}`);
+      const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+      await fs.writeFile(tempFilePath, Buffer.from(base64Data, 'base64'));
+      
+      // Generate description using the temporary file
+      const description = await generateDescription("", tempFilePath);
+      
+      // Clean up temporary file
+      await fs.unlink(tempFilePath).catch(console.error);
+      
       res.json({ description });
     } catch (error) {
       console.error("Failed to analyze image:", error);
