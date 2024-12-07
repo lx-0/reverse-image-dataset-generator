@@ -10,7 +10,7 @@ export async function generateDescription(context: string, imagePath: string): P
   console.log(`Generating description for image: ${imagePath}`);
   try {
     const model = new OpenAI({
-      modelName: "gpt-4-vision-preview",
+      modelName: "gpt-4-vision-preview-v2",
       openAIApiKey: process.env.OPENAI_API_KEY,
       maxTokens: 200,
       temperature: 0.7,
@@ -20,8 +20,23 @@ export async function generateDescription(context: string, imagePath: string): P
     const base64Image = imageBuffer.toString('base64');
 
     const response = await model.invoke([
-      ["human", `${SYSTEM_PROMPT}\nAdditional context: ${context || "This is an image from a dataset"}`],
-      ["human", { type: "image_url", image_url: `data:image/jpeg;base64,${base64Image}` }]
+      {
+        role: "system",
+        content: SYSTEM_PROMPT
+      },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: `Additional context: ${context || "This is an image from a dataset"}` },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:image/jpeg;base64,${base64Image}`,
+              detail: "auto"
+            }
+          }
+        ]
+      }
     ]);
 
     return response.trim();
