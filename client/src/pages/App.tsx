@@ -38,7 +38,7 @@ export function App() {
         title: "Success",
         description: "Dataset has been processed successfully",
       });
-      setIsProcessing(false);
+      // Keep isProcessing true to maintain the results view
     },
     onError: () => {
       toast({
