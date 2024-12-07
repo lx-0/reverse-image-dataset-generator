@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import type { ImageFile } from "../lib/types";
 
 interface Props {
@@ -79,14 +80,17 @@ export function ProcessingQueue({ files, onComplete }: Props) {
         
         setStatus(prev => ({
           ...prev,
-          processedImages: [
-            ...prev.processedImages,
-            {
-              name: file.name,
-              preview: file.preview,
-              description: data.description
-            }
-          ]
+          processedImages: Array.isArray(prev.processedImages) 
+            ? [...prev.processedImages, {
+                name: file.name,
+                preview: file.preview,
+                description: data.description
+              }]
+            : [{
+                name: file.name,
+                preview: file.preview,
+                description: data.description
+              }]
         }));
 
         if (index === files.length - 1) {
