@@ -10,7 +10,7 @@ export async function generateDescription(context: string, imagePath: string): P
   console.log(`Generating description for image: ${imagePath}`);
   try {
     const model = new OpenAI({
-      modelName: "gpt-4-vision-preview",
+      modelName: "gpt-4o-mini",
       openAIApiKey: process.env.OPENAI_API_KEY,
       maxTokens: 200,
       temperature: 0.7,
