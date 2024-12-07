@@ -33,10 +33,10 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
     processedImages: [],
   });
   const [datasetId, setDatasetId] = useState<string | null>(null);
+  const [processedImages, setProcessedImages] = useState<ProcessedImage[]>([]);
   const processingRef = useRef({
     isProcessing: false,
     isCreatingDataset: false,
-    processedImages: [] as ProcessedImage[],
     isMounted: true
   });
 
@@ -56,7 +56,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
       files.forEach(file => formData.append('images', file.file));
       formData.append('description', description);
       
-      const analyses = processingRef.current.processedImages.map(img => ({
+      const analyses = processedImages.map(img => ({
         filename: img.name,
         description: img.description
       }));
@@ -94,9 +94,9 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
     processingRef.current = {
       isProcessing: false,
       isCreatingDataset: false,
-      processedImages: [],
       isMounted: true
     };
+    setProcessedImages([]);
     
     const processImages = async () => {
       // Prevent multiple processing cycles
@@ -150,15 +150,17 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
             description: data.description
           };
           
-          processingRef.current.processedImages.push(processedImage);
-          
-          setStatus(prev => ({
-            ...prev,
-            stage: "generating",
-            progress: ((i + 1) / files.length) * 100,
-            currentFile: file.name,
-            processedImages: [...processingRef.current.processedImages]
-          }));
+          setProcessedImages(prev => {
+            const newProcessedImages = [...prev, processedImage];
+            setStatus(prevStatus => ({
+              ...prevStatus,
+              stage: "generating",
+              progress: ((i + 1) / files.length) * 100,
+              currentFile: file.name,
+              processedImages: newProcessedImages
+            }));
+            return newProcessedImages;
+          });
         }
 
         // Only create dataset if all images are processed and component is still mounted
@@ -172,7 +174,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
           setStatus(prev => ({
             ...prev,
             stage: "complete",
-            processedImages: processingRef.current.processedImages
+            processedImages: processedImages
           }));
         }
       } finally {
@@ -240,11 +242,11 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         </div>
       </Card>
 
-      {status.stage === "complete" && datasetId && (
+      {status.stage === "complete" && datasetId && processedImages.length > 0 && (
         <Card className="p-6">
           <h2 className="text-2xl font-semibold mb-4">Processing Results</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {status.processedImages.map((image, index) => (
+            {processedImages.map((image, index) => (
               <Card key={index} className="p-4">
                 <div className="aspect-video mb-4">
                   <img
