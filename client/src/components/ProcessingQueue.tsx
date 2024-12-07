@@ -35,33 +35,30 @@ export function ProcessingQueue({ files, onComplete }: Props) {
 
   useEffect(() => {
     let isMounted = true;
+    const processedImages: ProcessedImage[] = [];
 
     const processFile = async (index: number) => {
       if (!isMounted || index >= files.length) {
-        if (isMounted) onComplete();
+        if (isMounted) {
+          setStatus(prev => ({
+            ...prev,
+            stage: "complete",
+            processedImages: processedImages
+          }));
+        }
         return;
       }
 
       const file = files[index];
 
       // Update status for analysis phase
-      setStatus({
+      setStatus(prev => ({
+        ...prev,
         stage: "analyzing",
         progress: (index / files.length) * 100,
         currentFile: file.name,
-      });
-
-      // Simulate processing time for now (this will be real in production)
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Update status for description generation
-      setStatus(prev => ({
-        stage: "generating",
-        progress: ((index + 0.5) / files.length) * 100,
-        currentFile: file.name,
       }));
 
-      // Another phase of processing
       try {
         const response = await fetch('/api/analyze', {
           method: 'POST',
@@ -78,30 +75,32 @@ export function ProcessingQueue({ files, onComplete }: Props) {
         
         const data = await response.json();
         
+        const processedImage = {
+          name: file.name,
+          preview: file.preview,
+          description: data.description
+        };
+        
+        processedImages.push(processedImage);
+        
         setStatus(prev => ({
           ...prev,
-          processedImages: Array.isArray(prev.processedImages) 
-            ? [...prev.processedImages, {
-                name: file.name,
-                preview: file.preview,
-                description: data.description
-              }]
-            : [{
-                name: file.name,
-                preview: file.preview,
-                description: data.description
-              }]
+          stage: "generating",
+          progress: ((index + 1) / files.length) * 100,
+          currentFile: file.name,
+          processedImages: [...processedImages]
         }));
 
-        if (index === files.length - 1) {
-          setStatus(prev => ({ ...prev, stage: "complete" }));
-        } else {
-          processFile(index + 1);
-        }
+        // Process next file
+        await processFile(index + 1);
       } catch (error) {
         console.error('Error processing image:', error);
         if (isMounted) {
-          setStatus(prev => ({ ...prev, stage: "complete" }));
+          setStatus(prev => ({ 
+            ...prev, 
+            stage: "complete",
+            processedImages: processedImages
+          }));
         }
       }
     };
@@ -111,7 +110,7 @@ export function ProcessingQueue({ files, onComplete }: Props) {
     return () => {
       isMounted = false;
     };
-  }, [files, onComplete]);
+  }, [files]);
 
   const getStageText = () => {
     switch (status.stage) {
