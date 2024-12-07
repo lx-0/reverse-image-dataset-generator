@@ -1,32 +1,29 @@
 import { OpenAI } from "@langchain/openai";
-import { PromptTemplate } from "@langchain/core/prompts";
+import fs from "fs/promises";
 
-const model = new OpenAI({
-  openAIApiKey: process.env.OPENAI_API_KEY,
-  temperature: 0.7,
-});
-
-const template = `Context: {context}
-
-You are analyzing an image that would be generated based on the above context.
-Describe the image in a way that would be suitable as a text-to-image generation prompt.
-Be specific but concise. Focus on visual details that would be important for image generation.
-
-Your description should be a single paragraph without any prefixes or explanations.`;
-
-const prompt = new PromptTemplate({
-  template,
-  inputVariables: ["context"],
-});
+const SYSTEM_PROMPT = `You are an expert at describing images for text-to-image generation. 
+Given an image, provide a detailed description that could be used to regenerate a similar image.
+Focus on visual details, composition, and style. Be specific but concise.
+Your response should be a single paragraph without any prefixes or explanations.`;
 
 export async function generateDescription(context: string, imagePath: string): Promise<string> {
   try {
-    const formattedPrompt = await prompt.format({
-      context: context || "This is an image from a dataset",
+    const model = new OpenAI({
+      modelName: "gpt-4-vision-preview",
+      openAIApiKey: process.env.OPENAI_API_KEY,
+      maxTokens: 200,
+      temperature: 0.7,
     });
 
-    const result = await model.call(formattedPrompt);
-    return result.trim();
+    const imageBuffer = await fs.readFile(imagePath);
+    const base64Image = imageBuffer.toString('base64');
+
+    const response = await model.invoke([
+      ["human", `${SYSTEM_PROMPT}\nAdditional context: ${context || "This is an image from a dataset"}`],
+      ["human", { type: "image_url", image_url: `data:image/jpeg;base64,${base64Image}` }]
+    ]);
+
+    return response.trim();
   } catch (error) {
     console.error("Error generating description:", error);
     return "An image from the dataset";

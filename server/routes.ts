@@ -5,9 +5,28 @@ import { generateDescription } from "./services/langchain";
 import path from "path";
 import fs from "fs/promises";
 
-const upload = multer({ dest: "uploads/" });
+// Configure multer to store files in uploads directory
+const storage = multer.diskStorage({
+  destination: 'uploads/',
+  filename: (req, file, cb) => {
+    cb(null, file.originalname);
+  }
+});
+
+const upload = multer({ storage });
 
 export function registerRoutes(app: Express) {
+  // Ensure uploads directory exists
+  app.use(async (req, res, next) => {
+    try {
+      await fs.mkdir('uploads', { recursive: true });
+      next();
+    } catch (error) {
+      console.error('Failed to create uploads directory:', error);
+      next(error);
+    }
+  });
+
   app.post("/api/process", upload.array("images"), async (req, res) => {
     try {
       const files = req.files as Express.Multer.File[];
@@ -24,13 +43,18 @@ export function registerRoutes(app: Express) {
       // Process each image
       const entries = await Promise.all(
         files.map(async (file) => {
-          const instruction = await generateDescription(description, file.path);
-          return {
-            task_type: "text_to_image",
-            instruction,
-            input_images: [],
-            output_image: file.originalname,
-          };
+          try {
+            const instruction = await generateDescription(description, file.path);
+            return {
+              task_type: "text_to_image",
+              instruction,
+              input_images: [],
+              output_image: file.originalname,
+            };
+          } catch (error) {
+            console.error(`Failed to process image ${file.originalname}:`, error);
+            throw error;
+          }
         })
       );
 
@@ -39,16 +63,19 @@ export function registerRoutes(app: Express) {
 
       // Clean up
       await Promise.all([
-        ...files.map(file => fs.unlink(file.path)),
-        fs.rm(tempDir, { recursive: true }),
-      ]);
+        ...files.map(file => fs.unlink(file.path).catch(console.error)),
+        fs.rm(tempDir, { recursive: true }).catch(console.error),
+      ]).catch(console.error);
 
       res.set("Content-Type", "application/zip");
       res.set("Content-Disposition", "attachment; filename=dataset.zip");
       res.send(zipBuffer);
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: "Failed to process images" });
+      console.error("Failed to process images:", error);
+      res.status(500).json({ 
+        error: "Failed to process images",
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 }
