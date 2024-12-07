@@ -17,9 +17,34 @@ export function App() {
 
   const processMutation = useMutation({
     mutationFn: async () => {
+      // First analyze all images and collect descriptions
+      const analyses = await Promise.all(
+        files.map(async (file) => {
+          const response = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              image: file.preview,
+              filename: file.name 
+            }),
+          });
+          
+          if (!response.ok) throw new Error('Analysis failed');
+          const data = await response.json();
+          return { file, description: data.description };
+        })
+      );
+
+      // Then create the dataset
       const formData = new FormData();
-      files.forEach(file => formData.append('images', file.file));
+      analyses.forEach(({ file }) => formData.append('images', file.file));
       formData.append('description', description);
+      formData.append('analyses', JSON.stringify(analyses.map(a => ({
+        filename: a.file.name,
+        description: a.description
+      }))));
 
       const response = await fetch('/api/process', {
         method: 'POST',

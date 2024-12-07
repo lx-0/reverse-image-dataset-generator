@@ -14,7 +14,7 @@ interface Props {
   };
 }
 
-type ProcessingStage = "analyzing" | "generating" | "complete";
+type ProcessingStage = "analyzing" | "generating" | "archiving" | "complete";
 
 interface ProcessedImage {
   name: string;
@@ -121,9 +121,11 @@ export function ProcessingQueue({ files, onComplete, processMutation }: Props) {
   const getStageText = () => {
     switch (status.stage) {
       case "analyzing":
-        return "Analyzing image with AI vision model";
+        return "Analyzing images with AI vision model";
       case "generating":
-        return "Generating detailed description";
+        return "Generating detailed descriptions";
+      case "archiving":
+        return "Creating dataset archive";
       case "complete":
         return "Processing complete";
       default:

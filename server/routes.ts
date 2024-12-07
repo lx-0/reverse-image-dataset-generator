@@ -50,18 +50,17 @@ export function registerRoutes(app: express.Express) {
       const tempDir = path.join("uploads", `temp_${Date.now()}`);
       await fs.mkdir(tempDir, { recursive: true });
 
-      // Process each image
-      const entries = await Promise.all(
-        files.map(async (file) => {
-          const description = await generateDescription("", file.path);
-          return {
-            task_type: "text_to_image" as const,
-            instruction: description,
-            input_images: [file.originalname],
-            output_image: file.originalname,
-          };
-        })
-      );
+      // Use the provided analyses
+      const analyses = JSON.parse(req.body.analyses);
+      const entries = files.map((file) => {
+        const analysis = analyses.find(a => a.filename === file.originalname);
+        return {
+          task_type: "text_to_image" as const,
+          instruction: analysis?.description || "An image from the dataset",
+          input_images: [file.originalname],
+          output_image: file.originalname,
+        };
+      });
 
       // Create ZIP file with JSONL and images
       const zipBuffer = await processImages(files, entries, tempDir);
