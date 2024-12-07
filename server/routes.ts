@@ -3,7 +3,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
 import { processImages } from "./services/fileProcessing";
-import { generateDescription } from "./services/langchain";
+import { generateDescription } from "./services/imageAnalysis";
 
 // Configure multer for handling file uploads
 const upload = multer({ dest: "uploads/" });
