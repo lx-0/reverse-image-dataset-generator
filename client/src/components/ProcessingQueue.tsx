@@ -6,8 +6,12 @@ import type { ImageFile } from "../lib/types";
 
 interface Props {
   files: ImageFile[];
-  onComplete: () => void;
-  processMutation?: { isPending: boolean };
+  processMutation?: {
+    isPending: boolean;
+    data?: {
+      datasetId: string;
+    };
+  };
 }
 
 type ProcessingStage = "analyzing" | "generating" | "complete";
@@ -173,14 +177,14 @@ export function ProcessingQueue({ files, onComplete, processMutation }: Props) {
           <div className="mt-6 flex justify-end">
             <Button 
               onClick={() => {
-                if (datasetId) {
-                  window.open(`/api/datasets/${datasetId}`, '_blank');
+                if (processMutation?.data?.datasetId) {
+                  window.open(`/api/datasets/${processMutation.data.datasetId}`, '_blank');
                 }
               }}
               size="lg"
-              disabled={!datasetId || processMutation?.isPending}
+              disabled={!processMutation?.data?.datasetId}
             >
-              {processMutation?.isPending ? "Processing..." : "Download Dataset"}
+              Download Dataset
             </Button>
           </div>
         </Card>

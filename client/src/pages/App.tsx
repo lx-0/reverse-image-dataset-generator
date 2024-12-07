@@ -109,7 +109,6 @@ export function App() {
       ) : (
         <ProcessingQueue
           files={files}
-          onComplete={() => processMutation.mutate()}
           processMutation={processMutation}
         />
       )}
