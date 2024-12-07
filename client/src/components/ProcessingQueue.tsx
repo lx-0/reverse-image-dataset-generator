@@ -75,7 +75,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         console.log('Dataset created successfully:', result.datasetId);
         setDatasetId(result.datasetId);
         setStatus(prev => ({ ...prev, stage: "complete" }));
-        onComplete?.();
+        // Don't call onComplete here, let user view results first
       }
     } catch (error) {
       console.error('Error creating dataset:', error);
@@ -261,12 +261,21 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
             ))}
           </div>
           <div className="mt-6 flex justify-end">
-            <Button 
-              onClick={() => window.open(`/api/datasets/${datasetId}`, '_blank')}
-              size="lg"
-            >
-              Download Dataset
-            </Button>
+            <div className="flex gap-4">
+              <Button 
+                variant="outline"
+                onClick={onComplete}
+                size="lg"
+              >
+                Back to Upload
+              </Button>
+              <Button 
+                onClick={() => window.open(`/api/datasets/${datasetId}`, '_blank')}
+                size="lg"
+              >
+                Download Dataset
+              </Button>
+            </div>
           </div>
         </Card>
       )}
