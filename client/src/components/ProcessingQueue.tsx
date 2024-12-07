@@ -50,7 +50,12 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
     processingRef.current.isCreatingDataset = true;
     
     try {
-      setStatus(prev => ({ ...prev, stage: "archiving" }));
+      setStatus({
+        stage: "archiving",
+        progress: 0,
+        currentFile: "",
+        processedImages: processedImages
+      });
 
       const formData = new FormData();
       files.forEach(file => formData.append('images', file.file));
@@ -216,37 +221,46 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         <h2 className="text-2xl font-semibold mb-4">Processing Images</h2>
         <div className="space-y-6">
           {status.stage !== "complete" && (
-            <>
+            <div className="space-y-6">
               {status.stage === "archiving" ? (
-                <div className="space-y-4">
-                  <div className="text-sm font-medium">
-                    Creating Dataset Archive
+                <div className="p-12 flex flex-col items-center justify-center space-y-8 border rounded-lg bg-gradient-to-b from-background to-muted/20">
+                  <div className="relative">
+                    <div className="absolute -inset-3">
+                      <div className="w-full h-full rotate-180 bg-gradient-to-r from-primary/30 to-primary blur-lg opacity-50 animate-pulse" />
+                    </div>
+                    <div className="relative flex justify-center space-x-2">
+                      <div className="w-3 h-3 rounded-full bg-primary animate-[bounce_1s_ease-in-out_infinite]" />
+                      <div className="w-3 h-3 rounded-full bg-primary animate-[bounce_1s_ease-in-out_infinite_0.2s]" />
+                      <div className="w-3 h-3 rounded-full bg-primary animate-[bounce_1s_ease-in-out_infinite_0.4s]" />
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 rounded-full bg-primary animate-ping" />
-                    <span className="text-sm text-gray-600">
-                      Generating dataset archive... This may take a moment
-                    </span>
+                  <div className="text-center space-y-2">
+                    <h3 className="text-xl font-semibold bg-gradient-to-b from-foreground to-muted-foreground bg-clip-text text-transparent">
+                      Creating Dataset Archive
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Processing your dataset... This may take a moment
+                    </p>
                   </div>
                 </div>
               ) : (
-                <>
-                  <div className="flex items-center justify-between text-sm text-gray-600">
-                    <span>Current File: {status.currentFile}</span>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>Processing: {status.currentFile}</span>
                     <span>{Math.round(status.progress)}%</span>
                   </div>
                   <Progress value={status.progress} className="w-full" />
                   <div className="space-y-2">
                     <div className="text-sm font-medium">
-                      Current Stage: {getStageText()}
+                      {getStageText()}
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-muted-foreground">
                       {Math.floor(status.progress / (100 / files.length))} of {files.length} images processed
                     </div>
                   </div>
-                </>
+                </div>
               )}
-            </>
+            </div>
           )}
         </div>
       </Card>
