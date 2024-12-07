@@ -30,8 +30,7 @@ interface ProcessingStatus {
   processedImages: ProcessedImage[];
 }
 
-export function ProcessingQueue({ files, onComplete, processMutation }: Props) {
-  const [datasetId, setDatasetId] = useState<string | null>(null);
+export function ProcessingQueue({ files, processMutation }: Props) {
   const [status, setStatus] = useState<ProcessingStatus>({
     stage: "analyzing",
     progress: 0,
@@ -48,9 +47,12 @@ export function ProcessingQueue({ files, onComplete, processMutation }: Props) {
         if (isMounted) {
           setStatus(prev => ({
             ...prev,
-            stage: "complete",
+            stage: "archiving",
+            progress: 100,
             processedImages: processedImages
           }));
+          // Trigger the mutation to create the ZIP file
+          processMutation.mutate();
         }
         return;
       }
@@ -116,7 +118,17 @@ export function ProcessingQueue({ files, onComplete, processMutation }: Props) {
     return () => {
       isMounted = false;
     };
-  }, [files]);
+  }, [files, processMutation]);
+
+  // Update status when ZIP creation is complete
+  useEffect(() => {
+    if (processMutation.data?.datasetId) {
+      setStatus(prev => ({
+        ...prev,
+        stage: "complete"
+      }));
+    }
+  }, [processMutation.data?.datasetId]);
 
   const getStageText = () => {
     switch (status.stage) {
@@ -149,16 +161,23 @@ export function ProcessingQueue({ files, onComplete, processMutation }: Props) {
                 <div className="text-sm font-medium">
                   Current Stage: {getStageText()}
                 </div>
-                <div className="text-sm text-gray-600">
-                  {Math.floor(status.progress / (100 / files.length))} of {files.length} images processed
-                </div>
+                {status.stage !== "archiving" && (
+                  <div className="text-sm text-gray-600">
+                    {Math.floor(status.progress / (100 / files.length))} of {files.length} images processed
+                  </div>
+                )}
+                {status.stage === "archiving" && processMutation.isPending && (
+                  <div className="text-sm text-gray-600 animate-pulse">
+                    Creating dataset archive...
+                  </div>
+                )}
               </div>
             </>
           )}
         </div>
       </Card>
 
-      {status.stage === "complete" && (
+      {status.stage === "complete" && processMutation.data?.datasetId && (
         <Card className="p-6">
           <h2 className="text-2xl font-semibold mb-4">Processing Results</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -178,13 +197,8 @@ export function ProcessingQueue({ files, onComplete, processMutation }: Props) {
           </div>
           <div className="mt-6 flex justify-end">
             <Button 
-              onClick={() => {
-                if (processMutation?.data?.datasetId) {
-                  window.open(`/api/datasets/${processMutation.data.datasetId}`, '_blank');
-                }
-              }}
+              onClick={() => window.open(`/api/datasets/${processMutation.data.datasetId}`, '_blank')}
               size="lg"
-              disabled={!processMutation?.data?.datasetId}
             >
               Download Dataset
             </Button>
