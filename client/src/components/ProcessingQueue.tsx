@@ -41,84 +41,90 @@ export function ProcessingQueue({ files, processMutation }: Props) {
   useEffect(() => {
     let isMounted = true;
     const processedImages: ProcessedImage[] = [];
+    let currentIndex = 0;
 
-    const processFile = async (index: number) => {
-      if (!isMounted || index >= files.length) {
+    const processImages = async () => {
+      if (!isMounted) return;
+
+      try {
+        // Process all images sequentially
+        for (let i = 0; i < files.length; i++) {
+          if (!isMounted) return;
+          currentIndex = i;
+          
+          const file = files[i];
+          setStatus(prev => ({
+            ...prev,
+            stage: "analyzing",
+            progress: (i / files.length) * 100,
+            currentFile: file.name,
+          }));
+
+          const response = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              image: file.preview,
+              filename: file.name 
+            }),
+          });
+
+          if (!response.ok) throw new Error('Failed to analyze image');
+          
+          const data = await response.json();
+          
+          const processedImage = {
+            name: file.name,
+            preview: file.preview,
+            description: data.description
+          };
+          
+          processedImages.push(processedImage);
+          
+          // Update status after each image is processed
+          setStatus(prev => ({
+            ...prev,
+            stage: "generating",
+            progress: ((i + 1) / files.length) * 100,
+            currentFile: file.name,
+            processedImages: [...processedImages]
+          }));
+
+          // Small delay to ensure UI updates are visible
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        // All images processed, move to archiving stage
         if (isMounted) {
           setStatus(prev => ({
             ...prev,
             stage: "archiving",
             progress: 100,
-            processedImages: processedImages
+            processedImages
           }));
-          // Trigger the mutation to create the ZIP file
+          // Only trigger ZIP creation once all images are processed
           processMutation.mutate();
         }
-        return;
-      }
-
-      const file = files[index];
-
-      // Update status for analysis phase
-      setStatus(prev => ({
-        ...prev,
-        stage: "analyzing",
-        progress: (index / files.length) * 100,
-        currentFile: file.name,
-      }));
-
-      try {
-        const response = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            image: file.preview,
-            filename: file.name 
-          }),
-        });
-
-        if (!response.ok) throw new Error('Failed to analyze image');
-        
-        const data = await response.json();
-        
-        const processedImage = {
-          name: file.name,
-          preview: file.preview,
-          description: data.description
-        };
-        
-        processedImages.push(processedImage);
-        
-        setStatus(prev => ({
-          ...prev,
-          stage: "generating",
-          progress: ((index + 1) / files.length) * 100,
-          currentFile: file.name,
-          processedImages: [...processedImages]
-        }));
-
-        // Process next file
-        await processFile(index + 1);
       } catch (error) {
         console.error('Error processing image:', error);
         if (isMounted) {
-          setStatus(prev => ({ 
-            ...prev, 
+          setStatus(prev => ({
+            ...prev,
             stage: "complete",
-            processedImages: processedImages
+            processedImages
           }));
         }
       }
     };
 
-    processFile(0);
+    processImages();
 
     return () => {
       isMounted = false;
     };
-  }, [files, processMutation]);
+  }, [files]);
 
   // Update status when ZIP creation is complete
   useEffect(() => {
