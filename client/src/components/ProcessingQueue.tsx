@@ -50,12 +50,14 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
     processingRef.current.isCreatingDataset = true;
     
     try {
-      setStatus({
+      // Ensure we clear any previous progress and set archiving state
+      setStatus(prev => ({
+        ...prev,
         stage: "archiving",
         progress: 0,
         currentFile: "",
         processedImages: processedImages
-      });
+      }));
 
       const formData = new FormData();
       files.forEach(file => formData.append('images', file.file));
@@ -222,9 +224,25 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         <div className="space-y-6">
           {status.stage !== "complete" && (
             <div className="space-y-6">
-              {status.stage === "archiving" ? (
+              {status.stage === "analyzing" || status.stage === "generating" ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>Processing: {status.currentFile}</span>
+                    <span>{Math.round(status.progress)}%</span>
+                  </div>
+                  <Progress value={status.progress} className="w-full" />
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">
+                      {getStageText()}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {Math.floor(status.progress / (100 / files.length))} of {files.length} images processed
+                    </div>
+                  </div>
+                </div>
+              ) : status.stage === "archiving" && (
                 <div className="p-12 flex flex-col items-center justify-center space-y-8 border rounded-lg bg-gradient-to-b from-background to-muted/20">
-                  <div className="relative">
+                  <div className="relative w-full max-w-md">
                     <div className="absolute -inset-3">
                       <div className="w-full h-full rotate-180 bg-gradient-to-r from-primary/30 to-primary blur-lg opacity-50 animate-pulse" />
                     </div>
@@ -239,24 +257,8 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
                       Creating Dataset Archive
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      Processing your dataset... This may take a moment
+                      Packaging your dataset into a ZIP file... This may take a moment
                     </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>Processing: {status.currentFile}</span>
-                    <span>{Math.round(status.progress)}%</span>
-                  </div>
-                  <Progress value={status.progress} className="w-full" />
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium">
-                      {getStageText()}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {Math.floor(status.progress / (100 / files.length))} of {files.length} images processed
-                    </div>
                   </div>
                 </div>
               )}
