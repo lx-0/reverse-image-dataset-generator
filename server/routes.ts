@@ -2,8 +2,8 @@ import express from "express";
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
-import { processImages } from "./services/fileProcessing";
-import { generateDescription } from "./services/imageAnalysis";
+import { processImages } from "./services/fileProcessing.js";
+import { generateDescription } from "./services/imageAnalysis.js";
 
 // Configure multer for handling file uploads
 const upload = multer({ dest: "uploads/" });
