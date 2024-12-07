@@ -113,10 +113,8 @@ export function App() {
       ) : (
         <ProcessingQueue
           files={files}
-          onComplete={() => {
-            setIsProcessing(false);
-            processMutation.mutate();
-          }}
+          onComplete={() => processMutation.mutate()}
+          processMutation={processMutation}
         />
       )}
     </div>
