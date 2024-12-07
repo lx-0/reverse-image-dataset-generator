@@ -17,7 +17,7 @@ export async function generateDescription(context: string, imagePath: string): P
     const base64Image = imageBuffer.toString('base64');
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4-vision-preview",
       messages: [
         {
           role: "system",
@@ -33,8 +33,8 @@ export async function generateDescription(context: string, imagePath: string): P
             {
               type: "image_url",
               image_url: {
-                url: `data:image/jpeg;base64,${base64Image}`,
-                detail: "auto"
+                url: `data:image/png;base64,${base64Image}`,
+                detail: "high"
               }
             }
           ]

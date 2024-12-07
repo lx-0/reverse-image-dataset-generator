@@ -73,6 +73,14 @@ app.use((req, res, next) => {
       res.status(status).json({ message });
     });
 
+    // Create required directories
+    await fs.mkdir("uploads", { recursive: true }).catch(err => {
+      console.error("Failed to create uploads directory:", err);
+    });
+    await fs.mkdir(path.join("uploads", "datasets"), { recursive: true }).catch(err => {
+      console.error("Failed to create datasets directory:", err);
+    });
+
     // Setup static file serving or development server
     if (app.get("env") === "development") {
       await setupVite(app, server);
@@ -81,12 +89,18 @@ app.use((req, res, next) => {
     }
 
     // Start server
-    const PORT = 5000;
+    const PORT = process.env.PORT || 5000;
     server.listen(PORT, "0.0.0.0", () => {
       log(`Server running on port ${PORT}`);
+      log(`Environment: ${app.get("env")}`);
+      log("Required directories created");
+    }).on('error', (err) => {
+      console.error("Failed to start server:", err);
+      process.exit(1);
     });
   } catch (error) {
     console.error("Failed to start server:", error);
+    console.error("Error details:", error instanceof Error ? error.stack : String(error));
     process.exit(1);
   }
 })();

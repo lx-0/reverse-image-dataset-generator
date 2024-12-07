@@ -14,19 +14,42 @@ export function registerRoutes(app: express.Express) {
     try {
       const { image, filename } = req.body;
       
+      if (!image || !filename) {
+        return res.status(400).json({
+          error: "Missing required fields",
+          details: "Both image and filename are required"
+        });
+      }
+
+      // Validate base64 image format
+      if (!image.match(/^data:image\/(jpeg|png|jpg|gif);base64,/)) {
+        return res.status(400).json({
+          error: "Invalid image format",
+          details: "Image must be a valid base64 encoded image (JPEG, PNG, GIF)"
+        });
+      }
+      
       // Convert base64 to buffer and save temporarily
       const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
       const buffer = Buffer.from(base64Data, "base64");
       const tempPath = path.join("uploads", filename);
       
-      await fs.writeFile(tempPath, buffer);
+      // Ensure uploads directory exists
+      await fs.mkdir("uploads", { recursive: true });
       
-      const description = await generateDescription("", tempPath);
-      
-      // Clean up temp file
-      await fs.unlink(tempPath).catch(console.error);
-      
-      res.json({ description });
+      try {
+        await fs.writeFile(tempPath, buffer);
+        const description = await generateDescription("", tempPath);
+        
+        // Clean up temp file
+        await fs.unlink(tempPath).catch(console.error);
+        
+        res.json({ description });
+      } catch (error) {
+        // Clean up temp file in case of error
+        await fs.unlink(tempPath).catch(console.error);
+        throw error;
+      }
     } catch (error) {
       console.error("Error analyzing image:", error);
       res.status(500).json({ 
@@ -51,9 +74,13 @@ export function registerRoutes(app: express.Express) {
       await fs.mkdir(tempDir, { recursive: true });
 
       // Use the provided analyses
-      const analyses = JSON.parse(req.body.analyses);
+      interface Analysis {
+        filename: string;
+        description: string;
+      }
+      const analyses: Analysis[] = JSON.parse(req.body.analyses);
       const entries = files.map((file) => {
-        const analysis = analyses.find(a => a.filename === file.originalname);
+        const analysis = analyses.find((a: Analysis) => a.filename === file.originalname);
         return {
           task_type: "text_to_image" as const,
           instruction: analysis?.description || "An image from the dataset",
