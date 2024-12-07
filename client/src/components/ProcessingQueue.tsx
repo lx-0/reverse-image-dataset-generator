@@ -173,9 +173,8 @@ export function ProcessingQueue({ files, onComplete }: Props) {
             <Button 
               onClick={onComplete} 
               size="lg"
-              disabled={processMutation?.isPending}
             >
-              {processMutation?.isPending ? "Downloading..." : "Download Dataset"}
+              Download Dataset
             </Button>
           </div>
         </Card>
