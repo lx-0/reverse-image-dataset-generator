@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation } from "@tanstack/react-query";
 import type { ImageFile } from "../lib/types";
 
 export function App() {
@@ -14,49 +13,6 @@ export function App() {
   const [description, setDescription] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
-
-  const processMutation = useMutation({
-    mutationFn: async () => {
-      // Create the dataset archive directly from processed images
-      const formData = new FormData();
-      files.forEach(file => formData.append('images', file.file));
-      formData.append('description', description);
-      
-      // Get the processed analyses from the ProcessingQueue's state
-      const processedFiles = files.map(file => ({
-        filename: file.name,
-        description: file.name // This will be overwritten by the actual description from ProcessingQueue
-      }));
-      
-      formData.append('analyses', JSON.stringify(processedFiles));
-
-      const response = await fetch('/api/process', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Processing failed');
-      }
-
-      const data = await response.json();
-      return data;
-    },
-    onSuccess: (data) => {
-      toast({
-        title: "Success",
-        description: "Dataset has been processed successfully",
-      });
-      // Keep isProcessing true to maintain the results view
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to process images",
-        variant: "destructive",
-      });
-    },
-  });
 
   const handleProcess = () => {
     if (files.length === 0) {
@@ -68,7 +24,6 @@ export function App() {
       return;
     }
     setIsProcessing(true);
-    processMutation.mutate();
   };
 
   return (
@@ -107,9 +62,8 @@ export function App() {
                 <Button
                   size="lg"
                   onClick={handleProcess}
-                  disabled={processMutation.isPending}
                 >
-                  {processMutation.isPending ? "Processing..." : "Process Dataset"}
+                  Process Dataset
                 </Button>
               </div>
             </>
@@ -118,7 +72,8 @@ export function App() {
       ) : (
         <ProcessingQueue
           files={files}
-          processMutation={processMutation}
+          description={description}
+          onComplete={() => setIsProcessing(false)}
         />
       )}
     </div>

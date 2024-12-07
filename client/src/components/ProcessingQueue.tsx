@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,12 +6,8 @@ import type { ImageFile } from "../lib/types";
 
 interface Props {
   files: ImageFile[];
-  processMutation?: {
-    isPending: boolean;
-    data?: {
-      datasetId: string;
-    };
-  };
+  description: string;
+  onComplete?: () => void;
 }
 
 type ProcessingStage = "analyzing" | "generating" | "archiving" | "complete";
@@ -26,31 +22,69 @@ interface ProcessingStatus {
   stage: ProcessingStage;
   progress: number;
   currentFile: string;
-  description?: string;
   processedImages: ProcessedImage[];
 }
 
-export function ProcessingQueue({ files, processMutation }: Props) {
+export function ProcessingQueue({ files, description, onComplete }: Props) {
   const [status, setStatus] = useState<ProcessingStatus>({
     stage: "analyzing",
     progress: 0,
     currentFile: "",
     processedImages: [],
   });
+  const [datasetId, setDatasetId] = useState<string | null>(null);
+  const [isCreatingDataset, setIsCreatingDataset] = useState(false);
+  const processedImagesRef = useRef<ProcessedImage[]>([]);
+  const mountedRef = useRef(true);
+
+  const createDataset = useCallback(async () => {
+    if (isCreatingDataset) return;
+    setIsCreatingDataset(true);
+
+    try {
+      const formData = new FormData();
+      files.forEach(file => formData.append('images', file.file));
+      formData.append('description', description);
+      
+      const analyses = processedImagesRef.current.map(img => ({
+        filename: img.name,
+        description: img.description
+      }));
+      formData.append('analyses', JSON.stringify(analyses));
+
+      const response = await fetch('/api/process', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Failed to create dataset');
+      
+      const result = await response.json();
+      if (mountedRef.current) {
+        setDatasetId(result.datasetId);
+        setStatus(prev => ({ ...prev, stage: "complete" }));
+        onComplete?.();
+      }
+    } catch (error) {
+      console.error('Error creating dataset:', error);
+      if (mountedRef.current) {
+        setStatus(prev => ({ ...prev, stage: "complete" }));
+      }
+    } finally {
+      if (mountedRef.current) {
+        setIsCreatingDataset(false);
+      }
+    }
+  }, [files, description, onComplete]);
 
   useEffect(() => {
-    let isMounted = true;
-    const processedImages: ProcessedImage[] = [];
-    let currentIndex = 0;
-
+    mountedRef.current = true;
+    
     const processImages = async () => {
-      if (!isMounted) return;
-
       try {
         // Process all images sequentially
         for (let i = 0; i < files.length; i++) {
-          if (!isMounted) return;
-          currentIndex = i;
+          if (!mountedRef.current) return;
           
           const file = files[i];
           setStatus(prev => ({
@@ -81,39 +115,38 @@ export function ProcessingQueue({ files, processMutation }: Props) {
             description: data.description
           };
           
-          processedImages.push(processedImage);
+          processedImagesRef.current.push(processedImage);
           
-          // Update status after each image is processed
-          setStatus(prev => ({
-            ...prev,
-            stage: "generating",
-            progress: ((i + 1) / files.length) * 100,
-            currentFile: file.name,
-            processedImages: [...processedImages]
-          }));
+          if (mountedRef.current) {
+            setStatus(prev => ({
+              ...prev,
+              stage: "generating",
+              progress: ((i + 1) / files.length) * 100,
+              currentFile: file.name,
+              processedImages: [...processedImagesRef.current]
+            }));
+          }
 
-          // Small delay to ensure UI updates are visible
           await new Promise(resolve => setTimeout(resolve, 100));
         }
 
         // All images processed, move to archiving stage
-        if (isMounted) {
+        if (mountedRef.current) {
           setStatus(prev => ({
             ...prev,
             stage: "archiving",
             progress: 100,
-            processedImages
+            processedImages: processedImagesRef.current
           }));
-          // Only trigger ZIP creation once all images are processed
-          processMutation.mutate();
+          await createDataset();
         }
       } catch (error) {
-        console.error('Error processing image:', error);
-        if (isMounted) {
+        console.error('Error processing images:', error);
+        if (mountedRef.current) {
           setStatus(prev => ({
             ...prev,
             stage: "complete",
-            processedImages
+            processedImages: processedImagesRef.current
           }));
         }
       }
@@ -122,19 +155,9 @@ export function ProcessingQueue({ files, processMutation }: Props) {
     processImages();
 
     return () => {
-      isMounted = false;
+      mountedRef.current = false;
     };
-  }, [files]);
-
-  // Update status when ZIP creation is complete
-  useEffect(() => {
-    if (processMutation.data?.datasetId) {
-      setStatus(prev => ({
-        ...prev,
-        stage: "complete"
-      }));
-    }
-  }, [processMutation.data?.datasetId]);
+  }, [files, createDataset]);
 
   const getStageText = () => {
     switch (status.stage) {
@@ -172,7 +195,7 @@ export function ProcessingQueue({ files, processMutation }: Props) {
                     {Math.floor(status.progress / (100 / files.length))} of {files.length} images processed
                   </div>
                 )}
-                {status.stage === "archiving" && processMutation.isPending && (
+                {status.stage === "archiving" && (
                   <div className="text-sm text-gray-600 animate-pulse">
                     Creating dataset archive...
                   </div>
@@ -183,7 +206,7 @@ export function ProcessingQueue({ files, processMutation }: Props) {
         </div>
       </Card>
 
-      {status.stage === "complete" && processMutation.data?.datasetId && (
+      {status.stage === "complete" && datasetId && (
         <Card className="p-6">
           <h2 className="text-2xl font-semibold mb-4">Processing Results</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -203,7 +226,7 @@ export function ProcessingQueue({ files, processMutation }: Props) {
           </div>
           <div className="mt-6 flex justify-end">
             <Button 
-              onClick={() => window.open(`/api/datasets/${processMutation.data.datasetId}`, '_blank')}
+              onClick={() => window.open(`/api/datasets/${datasetId}`, '_blank')}
               size="lg"
             >
               Download Dataset
