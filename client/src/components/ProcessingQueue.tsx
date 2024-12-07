@@ -33,23 +33,34 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
     processedImages: [],
   });
   const [datasetId, setDatasetId] = useState<string | null>(null);
-  const [isCreatingDataset, setIsCreatingDataset] = useState(false);
-  const processedImagesRef = useRef<ProcessedImage[]>([]);
-  const mountedRef = useRef(true);
+  const processingRef = useRef({
+    isProcessing: false,
+    isCreatingDataset: false,
+    processedImages: [] as ProcessedImage[],
+    isMounted: true
+  });
 
   const createDataset = useCallback(async () => {
-    if (isCreatingDataset) return;
-    setIsCreatingDataset(true);
-
+    if (processingRef.current.isCreatingDataset || !processingRef.current.isMounted) {
+      console.log('Dataset creation already in progress or component unmounted');
+      return;
+    }
+    
+    console.log('Starting dataset creation');
+    processingRef.current.isCreatingDataset = true;
+    
     try {
+      setStatus(prev => ({ ...prev, stage: "archiving" }));
+
       const formData = new FormData();
       files.forEach(file => formData.append('images', file.file));
       formData.append('description', description);
       
-      const analyses = processedImagesRef.current.map(img => ({
+      const analyses = processingRef.current.processedImages.map(img => ({
         filename: img.name,
         description: img.description
       }));
+      console.log('Preparing analyses for dataset:', analyses.length, 'images');
       formData.append('analyses', JSON.stringify(analyses));
 
       const response = await fetch('/api/process', {
@@ -60,33 +71,54 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
       if (!response.ok) throw new Error('Failed to create dataset');
       
       const result = await response.json();
-      if (mountedRef.current) {
+      if (processingRef.current.isMounted) {
+        console.log('Dataset created successfully:', result.datasetId);
         setDatasetId(result.datasetId);
         setStatus(prev => ({ ...prev, stage: "complete" }));
         onComplete?.();
       }
     } catch (error) {
       console.error('Error creating dataset:', error);
-      if (mountedRef.current) {
+      if (processingRef.current.isMounted) {
         setStatus(prev => ({ ...prev, stage: "complete" }));
       }
     } finally {
-      if (mountedRef.current) {
-        setIsCreatingDataset(false);
+      if (processingRef.current.isMounted) {
+        processingRef.current.isCreatingDataset = false;
       }
     }
   }, [files, description, onComplete]);
 
   useEffect(() => {
-    mountedRef.current = true;
+    // Initialize state
+    processingRef.current = {
+      isProcessing: false,
+      isCreatingDataset: false,
+      processedImages: [],
+      isMounted: true
+    };
     
     const processImages = async () => {
+      // Prevent multiple processing cycles
+      if (processingRef.current.isProcessing || !processingRef.current.isMounted) {
+        console.log('Processing already in progress or component unmounted');
+        return;
+      }
+      
+      console.log('Starting image processing');
+      processingRef.current.isProcessing = true;
+
       try {
         // Process all images sequentially
         for (let i = 0; i < files.length; i++) {
-          if (!mountedRef.current) return;
+          if (!processingRef.current.isMounted) {
+            console.log('Component unmounted during processing');
+            return;
+          }
           
           const file = files[i];
+          console.log(`Processing image ${i + 1}/${files.length}:`, file.name);
+          
           setStatus(prev => ({
             ...prev,
             stage: "analyzing",
@@ -108,54 +140,56 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
           if (!response.ok) throw new Error('Failed to analyze image');
           
           const data = await response.json();
+          console.log('Analysis complete for:', file.name);
           
+          if (!processingRef.current.isMounted) return;
+
           const processedImage = {
             name: file.name,
             preview: file.preview,
             description: data.description
           };
           
-          processedImagesRef.current.push(processedImage);
+          processingRef.current.processedImages.push(processedImage);
           
-          if (mountedRef.current) {
-            setStatus(prev => ({
-              ...prev,
-              stage: "generating",
-              progress: ((i + 1) / files.length) * 100,
-              currentFile: file.name,
-              processedImages: [...processedImagesRef.current]
-            }));
-          }
-
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-
-        // All images processed, move to archiving stage
-        if (mountedRef.current) {
           setStatus(prev => ({
             ...prev,
-            stage: "archiving",
-            progress: 100,
-            processedImages: processedImagesRef.current
+            stage: "generating",
+            progress: ((i + 1) / files.length) * 100,
+            currentFile: file.name,
+            processedImages: [...processingRef.current.processedImages]
           }));
+        }
+
+        // Only create dataset if all images are processed and component is still mounted
+        if (processingRef.current.isMounted && !processingRef.current.isCreatingDataset) {
+          console.log('All images processed, creating dataset');
           await createDataset();
         }
       } catch (error) {
         console.error('Error processing images:', error);
-        if (mountedRef.current) {
+        if (processingRef.current.isMounted) {
           setStatus(prev => ({
             ...prev,
             stage: "complete",
-            processedImages: processedImagesRef.current
+            processedImages: processingRef.current.processedImages
           }));
+        }
+      } finally {
+        if (processingRef.current.isMounted) {
+          processingRef.current.isProcessing = false;
         }
       }
     };
 
+    // Start processing immediately
     processImages();
 
+    // Cleanup function
     return () => {
-      mountedRef.current = false;
+      processingRef.current.isMounted = false;
+      processingRef.current.isProcessing = false;
+      processingRef.current.isCreatingDataset = false;
     };
   }, [files, createDataset]);
 

@@ -26,6 +26,12 @@ export function App() {
     setIsProcessing(true);
   };
 
+  const handleComplete = () => {
+    setIsProcessing(false);
+    setFiles([]);
+    setDescription("");
+  };
+
   return (
     <div className="container mx-auto p-4 max-w-6xl">
       <h1 className="text-4xl font-bold mb-8">Dataset Creator for OmniGen</h1>
@@ -73,7 +79,7 @@ export function App() {
         <ProcessingQueue
           files={files}
           description={description}
-          onComplete={() => setIsProcessing(false)}
+          onComplete={handleComplete}
         />
       )}
     </div>
