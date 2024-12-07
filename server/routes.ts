@@ -29,19 +29,38 @@ export function registerRoutes(app: Express) {
 
   app.post("/api/analyze", async (req, res) => {
     try {
+      console.log("Received analyze request");
       const { image, filename } = req.body;
+      
+      if (!image || !filename) {
+        return res.status(400).json({ error: "Missing image or filename" });
+      }
+
       // Create a temporary file from the base64 image
       const tempFilePath = path.join('uploads', `temp_${Date.now()}_${filename}`);
-      const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
-      await fs.writeFile(tempFilePath, Buffer.from(base64Data, 'base64'));
+      console.log(`Creating temporary file: ${tempFilePath}`);
       
-      // Generate description using the temporary file
-      const description = await generateDescription("", tempFilePath);
-      
-      // Clean up temporary file
-      await fs.unlink(tempFilePath).catch(console.error);
-      
-      res.json({ description });
+      try {
+        const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+        await fs.writeFile(tempFilePath, Buffer.from(base64Data, 'base64'));
+        console.log("Successfully wrote temporary file");
+        
+        // Generate description using the temporary file
+        const description = await generateDescription("", tempFilePath);
+        console.log("Generated description:", description);
+        
+        // Clean up temporary file
+        await fs.unlink(tempFilePath).catch(error => {
+          console.error("Error cleaning up temp file:", error);
+        });
+        
+        res.json({ description });
+      } catch (error) {
+        console.error("Error processing image:", error);
+        // Clean up on error
+        await fs.unlink(tempFilePath).catch(console.error);
+        throw error;
+      }
     } catch (error) {
       console.error("Failed to analyze image:", error);
       res.status(500).json({ 

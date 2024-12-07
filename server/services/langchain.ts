@@ -7,9 +7,10 @@ Focus on visual details, composition, and style. Be specific but concise.
 Your response should be a single paragraph without any prefixes or explanations.`;
 
 export async function generateDescription(context: string, imagePath: string): Promise<string> {
+  console.log(`Generating description for image: ${imagePath}`);
   try {
     const model = new OpenAI({
-      modelName: "gpt-4-vision-0125",
+      modelName: "gpt-4-vision-preview",
       openAIApiKey: process.env.OPENAI_API_KEY,
       maxTokens: 200,
       temperature: 0.7,
