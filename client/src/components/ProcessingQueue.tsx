@@ -217,26 +217,35 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         <div className="space-y-6">
           {status.stage !== "complete" && (
             <>
-              <div className="flex items-center justify-between text-sm text-gray-600">
-                <span>Current File: {status.currentFile}</span>
-                <span>{Math.round(status.progress)}%</span>
-              </div>
-              <Progress value={status.progress} className="w-full" />
-              <div className="space-y-2">
-                <div className="text-sm font-medium">
-                  Current Stage: {getStageText()}
-                </div>
-                {status.stage !== "archiving" && (
-                  <div className="text-sm text-gray-600">
-                    {Math.floor(status.progress / (100 / files.length))} of {files.length} images processed
+              {status.stage !== "archiving" ? (
+                <>
+                  <div className="flex items-center justify-between text-sm text-gray-600">
+                    <span>Current File: {status.currentFile}</span>
+                    <span>{Math.round(status.progress)}%</span>
                   </div>
-                )}
-                {status.stage === "archiving" && (
-                  <div className="text-sm text-gray-600 animate-pulse">
-                    Creating dataset archive...
+                  <Progress value={status.progress} className="w-full" />
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">
+                      Current Stage: {getStageText()}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {Math.floor(status.progress / (100 / files.length))} of {files.length} images processed
+                    </div>
                   </div>
-                )}
-              </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-4">
+                    <div className="text-sm font-medium">
+                      Current Stage: {getStageText()}
+                    </div>
+                    <Progress className="w-full animate-pulse" value={30} />
+                    <div className="text-sm text-gray-600 animate-pulse">
+                      Creating dataset archive... This may take a moment
+                    </div>
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
