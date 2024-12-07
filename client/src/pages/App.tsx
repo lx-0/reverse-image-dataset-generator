@@ -30,19 +30,15 @@ export function App() {
         throw new Error('Processing failed');
       }
 
-      return response.blob();
+      const data = await response.json();
+      return data;
     },
-    onSuccess: (blob) => {
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'dataset.zip';
-      a.click();
-      window.URL.revokeObjectURL(url);
+    onSuccess: (data) => {
       toast({
         title: "Success",
-        description: "Dataset has been downloaded successfully",
+        description: "Dataset has been processed successfully",
       });
+      setIsProcessing(false);
     },
     onError: () => {
       toast({

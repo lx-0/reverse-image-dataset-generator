@@ -1,68 +1,34 @@
-import type { Express } from "express";
+import express from "express";
 import multer from "multer";
-import { processImages } from "./services/fileProcessing";
-import { generateDescription } from "./services/langchain";
 import path from "path";
 import fs from "fs/promises";
+import { processImages } from "./services/fileProcessing";
+import { generateDescription } from "./services/langchain";
 
-// Configure multer to store files in uploads directory
-const storage = multer.diskStorage({
-  destination: 'uploads/',
-  filename: (req, file, cb) => {
-    cb(null, file.originalname);
-  }
-});
+// Configure multer for handling file uploads
+const upload = multer({ dest: "uploads/" });
 
-const upload = multer({ storage });
-
-export function registerRoutes(app: Express) {
-  // Ensure uploads directory exists
-  app.use(async (req, res, next) => {
-    try {
-      await fs.mkdir('uploads', { recursive: true });
-      next();
-    } catch (error) {
-      console.error('Failed to create uploads directory:', error);
-      next(error);
-    }
-  });
-
+export function registerRoutes(app: express.Express) {
+  // Endpoint to analyze a single image
   app.post("/api/analyze", async (req, res) => {
     try {
-      console.log("Received analyze request");
       const { image, filename } = req.body;
       
-      if (!image || !filename) {
-        return res.status(400).json({ error: "Missing image or filename" });
-      }
-
-      // Create a temporary file from the base64 image
-      const tempFilePath = path.join('uploads', `temp_${Date.now()}_${filename}`);
-      console.log(`Creating temporary file: ${tempFilePath}`);
+      // Convert base64 to buffer and save temporarily
+      const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
+      const buffer = Buffer.from(base64Data, "base64");
+      const tempPath = path.join("uploads", filename);
       
-      try {
-        const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
-        await fs.writeFile(tempFilePath, Buffer.from(base64Data, 'base64'));
-        console.log("Successfully wrote temporary file");
-        
-        // Generate description using the temporary file
-        const description = await generateDescription("", tempFilePath);
-        console.log("Generated description:", description);
-        
-        // Clean up temporary file
-        await fs.unlink(tempFilePath).catch(error => {
-          console.error("Error cleaning up temp file:", error);
-        });
-        
-        res.json({ description });
-      } catch (error) {
-        console.error("Error processing image:", error);
-        // Clean up on error
-        await fs.unlink(tempFilePath).catch(console.error);
-        throw error;
-      }
+      await fs.writeFile(tempPath, buffer);
+      
+      const description = await generateDescription("", tempPath);
+      
+      // Clean up temp file
+      await fs.unlink(tempPath).catch(console.error);
+      
+      res.json({ description });
     } catch (error) {
-      console.error("Failed to analyze image:", error);
+      console.error("Error analyzing image:", error);
       res.status(500).json({ 
         error: "Failed to analyze image",
         details: error instanceof Error ? error.message : String(error)
@@ -70,53 +36,80 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Endpoint to process multiple images and create dataset
   app.post("/api/process", upload.array("images"), async (req, res) => {
     try {
       const files = req.files as Express.Multer.File[];
       const description = req.body.description || "";
 
       if (!files || files.length === 0) {
-        return res.status(400).json({ error: "No files uploaded" });
+        throw new Error("No files uploaded");
       }
 
-      // Create temporary directory for processed files
-      const tempDir = path.join("uploads", Date.now().toString());
+      // Create temporary directory for processing
+      const tempDir = path.join("uploads", `temp_${Date.now()}`);
       await fs.mkdir(tempDir, { recursive: true });
 
       // Process each image
       const entries = await Promise.all(
         files.map(async (file) => {
-          try {
-            const instruction = await generateDescription(description, file.path);
-            return {
-              task_type: "text_to_image",
-              instruction,
-              input_images: [],
-              output_image: file.originalname,
-            };
-          } catch (error) {
-            console.error(`Failed to process image ${file.originalname}:`, error);
-            throw error;
-          }
+          const description = await generateDescription("", file.path);
+          return {
+            task_type: "text_to_image" as const,
+            instruction: description,
+            input_images: [file.originalname],
+            output_image: file.originalname,
+          };
         })
       );
 
       // Create ZIP file with JSONL and images
       const zipBuffer = await processImages(files, entries, tempDir);
 
-      // Clean up
+      // Generate unique dataset ID
+      const datasetId = Date.now().toString();
+      const datasetsDir = path.join("uploads", "datasets");
+      await fs.mkdir(datasetsDir, { recursive: true });
+      
+      // Store the ZIP file
+      const datasetPath = path.join(datasetsDir, `${datasetId}.zip`);
+      await fs.writeFile(datasetPath, zipBuffer);
+
+      // Clean up temporary files
       await Promise.all([
         ...files.map(file => fs.unlink(file.path).catch(console.error)),
         fs.rm(tempDir, { recursive: true }).catch(console.error),
       ]).catch(console.error);
 
-      res.set("Content-Type", "application/zip");
-      res.set("Content-Disposition", "attachment; filename=dataset.zip");
-      res.send(zipBuffer);
+      res.json({ 
+        success: true,
+        message: "Dataset processed successfully",
+        datasetId 
+      });
     } catch (error) {
       console.error("Failed to process images:", error);
       res.status(500).json({ 
         error: "Failed to process images",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Endpoint to download a processed dataset
+  app.get("/api/datasets/:id", async (req, res) => {
+    try {
+      const datasetId = req.params.id;
+      const datasetPath = path.join("uploads", "datasets", `${datasetId}.zip`);
+      
+      if (!await fs.access(datasetPath).then(() => true).catch(() => false)) {
+        return res.status(404).json({ error: "Dataset not found" });
+      }
+
+      res.download(datasetPath);
+    } catch (error) {
+      console.error("Error downloading dataset:", error);
+      res.status(500).json({ 
+        error: "Failed to download dataset",
         details: error instanceof Error ? error.message : String(error)
       });
     }

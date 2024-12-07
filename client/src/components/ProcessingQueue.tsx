@@ -26,7 +26,8 @@ interface ProcessingStatus {
   processedImages: ProcessedImage[];
 }
 
-export function ProcessingQueue({ files, onComplete }: Props) {
+export function ProcessingQueue({ files, onComplete, processMutation }: Props) {
+  const [datasetId, setDatasetId] = useState<string | null>(null);
   const [status, setStatus] = useState<ProcessingStatus>({
     stage: "analyzing",
     progress: 0,
@@ -171,10 +172,15 @@ export function ProcessingQueue({ files, onComplete }: Props) {
           </div>
           <div className="mt-6 flex justify-end">
             <Button 
-              onClick={onComplete} 
+              onClick={() => {
+                if (datasetId) {
+                  window.open(`/api/datasets/${datasetId}`, '_blank');
+                }
+              }}
               size="lg"
+              disabled={!datasetId || processMutation?.isPending}
             >
-              Download Dataset
+              {processMutation?.isPending ? "Processing..." : "Download Dataset"}
             </Button>
           </div>
         </Card>
