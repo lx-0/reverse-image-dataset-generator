@@ -17,24 +17,19 @@ export async function generateDescription(context: string, imagePath: string): P
     const base64Image = imageBuffer.toString('base64');
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4-vision-preview",
+      model: "gpt-4o-mini",
       messages: [
-        {
-          role: "system",
-          content: SYSTEM_PROMPT
-        },
         {
           role: "user",
           content: [
-            {
-              type: "text",
-              text: `Additional context: ${context || "This is an image from a dataset"}`
+            { 
+              type: "text", 
+              text: context || "Please describe this image in detail, focusing on visual elements that would be important for regenerating a similar image." 
             },
             {
               type: "image_url",
               image_url: {
-                url: `data:image/png;base64,${base64Image}`,
-                detail: "high"
+                url: `data:image/png;base64,${base64Image}`
               }
             }
           ]
@@ -47,6 +42,10 @@ export async function generateDescription(context: string, imagePath: string): P
     return response.choices[0]?.message?.content?.trim() || "An image from the dataset";
   } catch (error) {
     console.error("Error generating description:", error);
-    return "An image from the dataset";
+    if (error instanceof Error) {
+      console.error("Error details:", error.message);
+    }
+    // Return a more specific fallback message
+    return "Failed to analyze image with AI. Using default description.";
   }
 }
