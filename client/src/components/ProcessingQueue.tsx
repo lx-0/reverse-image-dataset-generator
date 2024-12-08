@@ -118,30 +118,17 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
     }
   };
 
-  // Track processing state and processed files to prevent duplicate processing
-  const processingRef = useRef(false);
-  const processedFilesRef = useRef<Set<string>>(new Set());
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const processImages = useCallback(async () => {
     console.log('ProcessingQueue: processImages called', {
-      processingRef: processingRef.current,
-      processedFiles: Array.from(processedFilesRef.current),
       stage: state.stage,
       filesCount: files.length
     });
 
-    // Check if we've already processed these exact files
-    const currentFileSet = new Set(files.map(f => f.name));
-    const hasProcessedAll = Array.from(currentFileSet).every(f => processedFilesRef.current.has(f));
-    
-    // Guard against duplicate processing
-    if (processingRef.current || hasProcessedAll || state.stage !== "idle") {
-      console.log('ProcessingQueue: processing skipped', {
-        reason: processingRef.current ? 'already processing' : 
-                hasProcessedAll ? 'files already processed' : 
-                'not idle'
-      });
+    // Only process if we're in idle state
+    if (state.stage !== "idle") {
+      console.log('ProcessingQueue: processing skipped - not in idle state');
       return;
     }
 
@@ -192,9 +179,6 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
       const newDatasetId = await createDataset(processedImages);
       
       setDatasetId(newDatasetId);
-      // Track successfully processed files
-      files.forEach(f => processedFilesRef.current.add(f.name));
-      
       updateState({ 
         stage: "complete",
         processedImages,
@@ -227,29 +211,18 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
   }, [files, state.stage, toast]);
 
   useEffect(() => {
-    console.log('ProcessingQueue: mount effect triggered', {
-      wasMounted: isMountedRef.current,
-      filesCount: files.length,
-      stage: state.stage
-    });
-
-    // Only start processing if we have files and we're in idle state
+    // Only process if we have files and we're in idle state
     if (files.length > 0 && state.stage === "idle") {
-      console.log('ProcessingQueue: initiating processing');
+      console.log('ProcessingQueue: initiating processing for', files.length, 'files');
       processImages();
     }
-
-    // Cleanup function
+    
+    // Cancel any pending requests on unmount
     return () => {
-      console.log('ProcessingQueue: cleanup triggered');
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-      processingRef.current = false;
-      // Don't clear processedFiles on cleanup to prevent reprocessing on remount
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
     };
-  }, [files, processImages]); // Include processImages in dependencies
+  }, [files, processImages, state.stage]);
 
   return (
     <div className="space-y-8">
