@@ -27,7 +27,7 @@ export async function generateDescription(
           content: [
             {
               type: "text",
-              text: `You are a image generation prompt engineer. Please describe this image in detail, focusing on visual elements that would be important for regenerating a similar image. Then output an optimized short prompt which would be used to generate the image.${context ? `\n\nThe context of this image is ${context}` : ""}`,
+              text: `You are a image generation prompt engineer. Please describe this image in detail, focusing on visual elements that would be important for regenerating a similar image. Then generate an optimized short prompt which would be used to generate the image.${context ? `\n\nThe context of this image is ${context}` : ""}\n\nIMPORTANT: Please output ONLY the raw optimized prompt without any labelling, annotations or commentary. Do not output the image description.`,
             },
             {
               type: "image_url",

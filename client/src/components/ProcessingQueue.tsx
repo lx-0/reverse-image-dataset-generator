@@ -172,10 +172,13 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         });
 
         const description = await processImage(file);
-        updateState(state => ({
-          ...state,
+        console.log(`Generated description for ${file.name}:`, description);
+        
+        // Update state with new description
+        setState(prevState => ({
+          ...prevState,
           generatedDescriptions: [
-            ...state.generatedDescriptions,
+            ...prevState.generatedDescriptions,
             {
               filename: file.name,
               description,
@@ -183,7 +186,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
             }
           ]
         }));
-        console.log(`Generated description for ${file.name}:`, description);
+        
         processedImages.push({
           name: file.name,
           preview: file.preview,
@@ -277,22 +280,23 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
                   </div>
                 )}
               </div>
-              <div className="space-y-4 text-sm text-muted-foreground">
-                <div>
+              <div className="space-y-4">
+                <div className="text-sm text-muted-foreground">
                   {state.progress < 100 ? (
                     `${Math.min(Math.floor((state.progress / 100) * files.length), files.length)} of ${files.length} images processed`
                   ) : (
                     "Finalizing dataset archive"
                   )}
                 </div>
+                
                 {state.generatedDescriptions.length > 0 && (
-                  <div className="mt-4 space-y-3">
-                    <div className="font-medium">Generated Descriptions:</div>
-                    <div className="max-h-64 overflow-y-auto space-y-2">
+                  <div className="mt-4 space-y-3 border rounded-lg p-4 bg-background/50 backdrop-blur-sm">
+                    <div className="font-medium text-base">Generated Descriptions:</div>
+                    <div className="max-h-[400px] overflow-y-auto space-y-3 pr-2">
                       {state.generatedDescriptions.map((desc, index) => (
-                        <div key={index} className="p-3 bg-muted rounded-md">
-                          <div className="font-medium text-xs mb-1">{desc.filename}</div>
-                          <div className="text-sm italic">{desc.description}</div>
+                        <div key={index} className="p-4 bg-muted rounded-lg border shadow-sm">
+                          <div className="font-semibold text-sm mb-2 text-primary">{desc.filename}</div>
+                          <div className="text-sm text-muted-foreground">{desc.description}</div>
                         </div>
                       ))}
                     </div>
