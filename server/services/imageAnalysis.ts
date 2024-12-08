@@ -8,10 +8,25 @@ export const ReverseImageGenerationResponseSchema = z.object({
   imageTags: z.array(z.string()),
 });
 
+export type ReverseImageGenerationResponse = z.infer<
+  typeof ReverseImageGenerationResponseSchema
+>;
+
+export type GenerateDescriptionResponse =
+  | {
+      ok: true;
+      data: ReverseImageGenerationResponse;
+    }
+  | {
+      ok: false;
+      message: string;
+      error: unknown;
+    };
+
 export async function generateDescription(
   context: string,
   base64Image: string,
-): Promise<z.infer<typeof ReverseImageGenerationResponseSchema>> {
+): Promise<GenerateDescriptionResponse> {
   try {
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
@@ -19,7 +34,7 @@ export async function generateDescription(
 
     const hasContext = context.trim() !== "";
 
-    const prompt = `You are a image generation prompt engineer. Please describe the provided image in detail, focusing on visual elements that would be important for regenerating a similar image. ${hasContext ? ` Integrate the provided additional context while describing the image, as this is important for the image generation: ${context}.\n\n` : ""}Then generate an optimized short prompt which would be used to generate the image${hasContext ? `, but also integrate the additional context in the generated prompt as well` : ""}.\n\nBe specific but concise.`;
+    const prompt = `You are a image generation prompt engineer. Please describe the provided image in detail, focusing on visual elements that would be important for regenerating a similar image. Also generate tags matching the description. ${hasContext ? `Integrate the provided additional context in the description and the tags while describing the image, as this is important for the image generation. If characters, places or things are mentioned in the context, ensure to include them in the tags list as well. ` : ""}Then generate an optimized short prompt which would be used to generate the image${hasContext ? `, but also integrate the additional context in the generated prompt as well` : ""}. Be specific but concise.\nThe additional provided context is: ${context}`;
 
     console.log("Prompt:", prompt);
 
@@ -54,22 +69,38 @@ export async function generateDescription(
 
     if (reverse_image_generation_response.parsed) {
       // console.log("Raw resonse:", reverse_image_generation_response.parsed);
-      return reverse_image_generation_response.parsed;
+      return { ok: true, data: reverse_image_generation_response.parsed };
     } else if (reverse_image_generation_response.refusal) {
       // handle refusal
       console.error(
         "Error generating description:",
         reverse_image_generation_response.refusal,
       );
+
+      return {
+        ok: false,
+        message: "Failed to analyze image with AI.",
+        error: new Error(
+          `Error generating description: ${reverse_image_generation_response.refusal}`,
+        ),
+      };
     }
 
-    return "Failed to analyze image with AI.";
+    return {
+      ok: false,
+      message: "Failed to analyze image with AI.",
+      error: new Error("Unknown"),
+    };
   } catch (error) {
     console.error("Error generating description:", error);
     if (error instanceof Error) {
       console.error("Error details:", error.message);
     }
     // Return a more specific fallback message
-    return "Failed to analyze image with AI.";
+    return {
+      ok: false,
+      message: "Failed to analyze image with AI.",
+      error,
+    };
   }
 }

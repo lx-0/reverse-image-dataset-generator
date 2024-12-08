@@ -4,8 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import type { ImageFile } from "../lib/types";
-import { z } from "zod";
-import { ReverseImageGenerationResponseSchema } from "../../../server/services/imageAnalysis";
+import { GenerateDescriptionResponse } from "../../../server/services/imageAnalysis";
 
 interface Props {
   files: ImageFile[];
@@ -56,7 +55,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
 
   const processImage = async (
     file: ImageFile,
-  ): Promise<z.infer<typeof ReverseImageGenerationResponseSchema>> => {
+  ): Promise<ReverseImageGenerationResponse> => {
     try {
       // Convert File to base64
       const base64Data = await new Promise<string>((resolve, reject) => {
@@ -90,7 +89,12 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         );
       }
 
-      return response.json();
+      const apiResponse: GenerateDescriptionResponse = await response.json();
+
+      if (!apiResponse.ok) {
+        throw new Error(apiResponse.message);
+      }
+      return apiResponse.data;
     } catch (error) {
       throw new Error(
         `Failed to process image ${file.name}: ${error instanceof Error ? error.message : "Unknown error"}`,
