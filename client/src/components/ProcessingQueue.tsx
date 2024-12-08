@@ -391,9 +391,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         ) : null}
       </Card>
 
-      {state.stage === "complete" &&
-        datasetId &&
-        state.processedImages.length > 0 && (
+      {state.stage === "complete" && datasetId && state.processedImages.length > 0 && (
           <Card className="p-6">
             <h2 className="text-2xl font-semibold mb-4">Processing Results</h2>
             {description && description.trim() !== "" && (
