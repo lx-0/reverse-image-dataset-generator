@@ -23,6 +23,7 @@ interface GeneratedDescription {
   filename: string;
   description: string;
   timestamp: number;
+  preview: string;
 }
 
 interface State {
@@ -192,12 +193,13 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         setState((prevState) => ({
           ...prevState,
           generatedDescriptions: [
-            ...prevState.generatedDescriptions,
             {
               filename: file.name,
               description,
               timestamp: Date.now(),
+              preview: file.preview,
             },
+            ...prevState.generatedDescriptions,
           ],
         }));
 
@@ -319,11 +321,22 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
                           key={index}
                           className="p-4 bg-muted rounded-lg border shadow-sm"
                         >
-                          <div className="font-semibold text-sm mb-2 text-primary">
-                            {desc.filename}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {desc.description}
+                          <div className="flex gap-4">
+                            <div className="w-32 h-32 flex-shrink-0">
+                              <img
+                                src={desc.preview}
+                                alt={desc.filename}
+                                className="w-full h-full object-cover rounded-md"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-semibold text-sm mb-2 text-primary">
+                                {desc.filename}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {desc.description}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       ))}
