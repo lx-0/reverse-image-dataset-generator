@@ -11,7 +11,7 @@ interface Props {
   onComplete?: () => void;
 }
 
-type ProcessingStage = "analyzing" | "generating" | "archiving" | "complete" | "error";
+type ProcessingStage = "idle" | "analyzing" | "generating" | "archiving" | "complete" | "error";
 
 interface ProcessedImage {
   name: string;
@@ -19,14 +19,16 @@ interface ProcessedImage {
   description: string;
 }
 
-interface ProcessingStatus {
+interface ProcessingState {
   stage: ProcessingStage;
   progress: number;
   currentFile: string;
   processedImages: ProcessedImage[];
   error?: string;
+  retryCount: number;
 }
 
+// Components
 const LoadingSpinner = () => (
   <div className="flex justify-center items-center space-x-2">
     <div className="w-3 h-3 rounded-full bg-primary animate-[bounce_1s_ease-in-out_infinite]" />
@@ -35,41 +37,22 @@ const LoadingSpinner = () => (
   </div>
 );
 
-const ProcessingView = ({ status, files }: { status: ProcessingStatus; files: ImageFile[] }) => (
+const ProcessingView = ({ state, totalFiles }: { state: ProcessingState; totalFiles: number }) => (
   <div className="space-y-6">
     <div className="flex items-center justify-between text-sm text-muted-foreground">
-      <span>Processing: {status.currentFile}</span>
-      <span>{Math.round(status.progress)}%</span>
+      <span>Processing: {state.currentFile}</span>
+      <span>{Math.round(state.progress)}%</span>
     </div>
-    <Progress value={status.progress} className="w-full" />
+    <Progress value={state.progress} className="w-full" />
     <div className="space-y-2">
       <div className="text-sm font-medium">
-        {status.stage === "analyzing" && "Analyzing images with AI vision model"}
-        {status.stage === "generating" && "Generating detailed descriptions"}
-        {status.stage === "archiving" && "Creating dataset archive"}
+        {state.stage === "analyzing" && "Analyzing images with AI vision model"}
+        {state.stage === "generating" && "Generating detailed descriptions"}
+        {state.stage === "archiving" && "Creating dataset archive"}
       </div>
       <div className="text-sm text-muted-foreground">
-        {Math.floor(status.progress / (100 / files.length))} of {files.length} images processed
+        {Math.floor(state.progress / (100 / totalFiles))} of {totalFiles} images processed
       </div>
-    </div>
-  </div>
-);
-
-const ArchivingView = () => (
-  <div className="p-12 flex flex-col items-center justify-center space-y-8 border rounded-lg bg-gradient-to-b from-background to-muted/20">
-    <div className="relative w-full max-w-md">
-      <div className="absolute -inset-3">
-        <div className="w-full h-full rotate-180 bg-gradient-to-r from-primary/30 to-primary blur-lg opacity-50 animate-pulse" />
-      </div>
-      <LoadingSpinner />
-    </div>
-    <div className="text-center space-y-2">
-      <h3 className="text-xl font-semibold bg-gradient-to-b from-foreground to-muted-foreground bg-clip-text text-transparent">
-        Creating Dataset Archive
-      </h3>
-      <p className="text-sm text-muted-foreground">
-        Packaging your dataset into a ZIP file... This may take a moment
-      </p>
     </div>
   </div>
 );
@@ -109,230 +92,221 @@ const ResultsView = ({
       ))}
     </div>
     <div className="mt-6 flex justify-end gap-4">
-      <Button 
-        variant="outline"
-        onClick={onComplete}
-      >
+      <Button variant="outline" onClick={onComplete}>
         Back to Upload
       </Button>
-      <Button 
-        onClick={() => window.open(`/api/datasets/${datasetId}`, '_blank')}
-      >
+      <Button onClick={() => window.open(`/api/datasets/${datasetId}`, '_blank')}>
         Download Dataset
       </Button>
     </div>
   </Card>
 );
 
+// Main Component
 export function ProcessingQueue({ files, description, onComplete }: Props) {
-  const [status, setStatus] = useState<ProcessingStatus>({
-    stage: "analyzing",
+  const [state, setState] = useState<ProcessingState>({
+    stage: "idle",
     progress: 0,
     currentFile: "",
     processedImages: [],
+    retryCount: 0,
   });
   const [datasetId, setDatasetId] = useState<string | null>(null);
-  const processingRef = useRef({
-    isProcessing: false,
-    isCreatingDataset: false,
-    isMounted: true,
-    abortController: new AbortController()
-  });
+  const abortControllerRef = useRef<AbortController | null>(null);
   const { toast } = useToast();
+
+  const cleanup = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
 
   const handleError = useCallback((error: Error) => {
     console.error('Processing error:', error);
-    if (processingRef.current.isMounted) {
-      setStatus(prev => ({
+    if (error.name !== 'AbortError') {
+      setState(prev => ({
         ...prev,
         stage: "error",
-        error: error.message
+        error: error.message || "An unexpected error occurred",
+        retryCount: prev.retryCount + 1,
       }));
       toast({
         title: "Processing Error",
-        description: error.message,
+        description: error.message || "Failed to process images. Please try again.",
         variant: "destructive",
       });
     }
   }, [toast]);
 
-  const createDataset = useCallback(async () => {
-    if (processingRef.current.isCreatingDataset || !processingRef.current.isMounted) {
-      return;
-    }
-    
-    processingRef.current.isCreatingDataset = true;
-    
-    try {
-      setStatus(prev => ({
-        ...prev,
-        stage: "archiving",
-        progress: 0,
-        currentFile: "Creating dataset archive...",
-      }));
+  const analyzeImage = useCallback(async (file: ImageFile, signal: AbortSignal) => {
+    const MAX_RETRIES = 3;
+    let lastError: Error | null = null;
 
-      const formData = new FormData();
-      files.forEach(file => formData.append('images', file.file));
-      formData.append('description', description);
-      
-      const analyses = status.processedImages.map(img => ({
-        filename: img.name,
-        description: img.description
-      }));
-      formData.append('analyses', JSON.stringify(analyses));
-
-      const response = await fetch('/api/process', {
-        method: 'POST',
-        body: formData,
-        signal: processingRef.current.abortController.signal
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.details || 'Failed to create dataset');
-      }
-      
-      const result = await response.json();
-      if (processingRef.current.isMounted) {
-        setDatasetId(result.datasetId);
-        setStatus(prev => ({ ...prev, stage: "complete" }));
-        toast({
-          title: "Success",
-          description: "Dataset created successfully!",
-        });
-      }
-    } catch (error) {
-      if (error instanceof Error && error.name !== 'AbortError') {
-        handleError(error);
-      }
-    } finally {
-      if (processingRef.current.isMounted) {
-        processingRef.current.isCreatingDataset = false;
-      }
-    }
-  }, [files, description, status.processedImages, handleError, toast]);
-
-  const processImages = useCallback(async () => {
-    if (processingRef.current.isProcessing || !processingRef.current.isMounted) {
-      return;
-    }
-    
-    processingRef.current.isProcessing = true;
-    processingRef.current.abortController = new AbortController();
-    
-    setStatus({
-      stage: "analyzing",
-      progress: 0,
-      currentFile: "",
-      processedImages: []
-    });
-
-    const processedImages: ProcessedImage[] = [];
-
-    try {
-      for (let i = 0; i < files.length; i++) {
-        if (!processingRef.current.isMounted) return;
-        
-        const file = files[i];
-        setStatus(prev => ({
-          ...prev,
-          progress: (i / files.length) * 100,
-          currentFile: file.name,
-        }));
-
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
         const response = await fetch('/api/analyze', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             image: file.preview,
             filename: file.name 
           }),
-          signal: processingRef.current.abortController.signal
+          signal,
         });
 
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.details || 'Failed to analyze image');
         }
-        
-        const data = await response.json();
-        
-        if (!processingRef.current.isMounted) return;
 
-        const processedImage: ProcessedImage = {
-          name: file.name,
-          preview: file.preview,
-          description: data.description
-        };
-        
-        processedImages.push(processedImage);
-        
-        if (processingRef.current.isMounted) {
-          setStatus(prev => ({
-            ...prev,
-            stage: "generating",
-            progress: ((i + 1) / files.length) * 100,
-            currentFile: file.name,
-            processedImages: [...processedImages]
-          }));
+        const data = await response.json();
+        return data.description;
+      } catch (error) {
+        lastError = error as Error;
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw error;
+        }
+        if (attempt < MAX_RETRIES - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+          continue;
         }
       }
+    }
 
-      if (processingRef.current.isMounted && !processingRef.current.isCreatingDataset) {
-        await createDataset();
+    throw lastError || new Error('Failed to analyze image after multiple attempts');
+  }, []);
+
+  const createDataset = useCallback(async (signal: AbortSignal) => {
+    setState(prev => ({
+      ...prev,
+      stage: "archiving",
+      progress: 0,
+      currentFile: "Creating dataset archive...",
+    }));
+
+    const formData = new FormData();
+    files.forEach(file => formData.append('images', file.file));
+    formData.append('description', description);
+    
+    const analyses = state.processedImages.map(img => ({
+      filename: img.name,
+      description: img.description
+    }));
+    formData.append('analyses', JSON.stringify(analyses));
+
+    const response = await fetch('/api/process', {
+      method: 'POST',
+      body: formData,
+      signal,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.details || 'Failed to create dataset');
+    }
+    
+    const result = await response.json();
+    setDatasetId(result.datasetId);
+    setState(prev => ({ 
+      ...prev, 
+      stage: "complete",
+      progress: 100,
+    }));
+
+    toast({
+      title: "Success",
+      description: "Dataset created successfully!",
+    });
+  }, [files, description, state.processedImages, toast]);
+
+  const processImages = useCallback(async () => {
+    cleanup();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    try {
+      setState({
+        stage: "analyzing",
+        progress: 0,
+        currentFile: "",
+        processedImages: [],
+        retryCount: 0,
+      });
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setState(prev => ({
+          ...prev,
+          progress: (i / files.length) * 100,
+          currentFile: file.name,
+        }));
+
+        const description = await analyzeImage(file, controller.signal);
+        
+        setState(prev => ({
+          ...prev,
+          stage: "generating",
+          progress: ((i + 1) / files.length) * 100,
+          currentFile: file.name,
+          processedImages: [
+            ...prev.processedImages,
+            {
+              name: file.name,
+              preview: file.preview,
+              description,
+            }
+          ],
+        }));
       }
+
+      await createDataset(controller.signal);
     } catch (error) {
-      if (error instanceof Error && error.name !== 'AbortError') {
+      if (error instanceof Error) {
         handleError(error);
       }
-    } finally {
-      if (processingRef.current.isMounted) {
-        processingRef.current.isProcessing = false;
-      }
     }
-  }, [files, createDataset, handleError]);
+  }, [files, analyzeImage, createDataset, handleError, cleanup]);
 
   useEffect(() => {
-    processingRef.current = {
-      isProcessing: false,
-      isCreatingDataset: false,
-      isMounted: true,
-      abortController: new AbortController()
-    };
-    
-    processImages();
+    if (files.length > 0 && state.stage === "idle") {
+      processImages();
+    }
 
-    return () => {
-      processingRef.current.isMounted = false;
-      processingRef.current.abortController.abort();
-    };
-  }, [processImages]);
+    return cleanup;
+  }, [files, state.stage, processImages, cleanup]);
 
   return (
     <div className="space-y-8">
       <Card className="p-6">
         <h2 className="text-2xl font-semibold mb-6">Processing Images</h2>
-        {status.stage === "error" ? (
+        {state.stage === "error" ? (
           <ErrorView 
-            error={status.error || "An unknown error occurred"} 
+            error={state.error || "An unknown error occurred"} 
             onRetry={() => processImages()}
           />
-        ) : status.stage !== "complete" && (
+        ) : state.stage !== "complete" && state.stage !== "idle" && (
           <>
-            {status.stage === "analyzing" || status.stage === "generating" ? (
-              <ProcessingView status={status} files={files} />
-            ) : status.stage === "archiving" && (
-              <ArchivingView />
+            {state.stage === "analyzing" || state.stage === "generating" ? (
+              <ProcessingView state={state} totalFiles={files.length} />
+            ) : state.stage === "archiving" && (
+              <div className="p-12 flex flex-col items-center justify-center space-y-8">
+                <LoadingSpinner />
+                <div className="text-center space-y-2">
+                  <h3 className="text-xl font-semibold">Creating Dataset Archive</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Packaging your dataset into a ZIP file...
+                  </p>
+                </div>
+              </div>
             )}
           </>
         )}
       </Card>
 
-      {status.stage === "complete" && datasetId && status.processedImages.length > 0 && (
+      {state.stage === "complete" && datasetId && state.processedImages.length > 0 && (
         <ResultsView 
-          processedImages={status.processedImages}
+          processedImages={state.processedImages}
           datasetId={datasetId}
           onComplete={onComplete}
         />

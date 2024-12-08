@@ -14,6 +14,7 @@ export function registerRoutes(app: express.Express) {
     try {
       const { image, filename } = req.body;
       
+      // Input validation
       if (!image || !filename) {
         return res.status(400).json({
           error: "Missing required fields",
@@ -21,17 +22,41 @@ export function registerRoutes(app: express.Express) {
         });
       }
 
-      // Validate base64 image format
-      if (!image.match(/^data:image\/(jpeg|png|jpg|gif);base64,/)) {
+      // Extract base64 data and validate format
+      let base64Data: string;
+      try {
+        if (image.startsWith('data:image/')) {
+          const matches = image.match(/^data:image\/([a-zA-Z]+);base64,(.+)$/);
+          if (!matches) {
+            throw new Error("Invalid data URL format");
+          }
+          base64Data = matches[2];
+        } else if (image.match(/^[A-Za-z0-9+/]+={0,2}$/)) {
+          base64Data = image;
+        } else {
+          throw new Error("Invalid base64 format");
+        }
+      } catch (error) {
         return res.status(400).json({
           error: "Invalid image format",
-          details: "Image must be a valid base64 encoded image (JPEG, PNG, GIF)"
+          details: "Image must be either a valid data URL or base64 encoded image"
         });
       }
-      
-      // Convert base64 to buffer and save temporarily
-      const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
-      const buffer = Buffer.from(base64Data, "base64");
+
+      // Decode and validate base64
+      let buffer: Buffer;
+      try {
+        buffer = Buffer.from(base64Data, "base64");
+        if (buffer.length === 0) {
+          throw new Error("Empty image data");
+        }
+      } catch (error) {
+        return res.status(400).json({
+          error: "Invalid image data",
+          details: "Failed to decode image data"
+        });
+      }
+
       const tempPath = path.join("uploads", filename);
       
       // Ensure uploads directory exists
