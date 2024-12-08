@@ -49,7 +49,7 @@ export function App() {
           Reverse Image Dataset Generator
         </h1>
         <p className="text-lg text-muted-foreground">
-          Upload your images and provide context to automatically generate high-quality training datasets for fine-tuning image generation models. Our AI will analyze your images and create optimized prompts, descriptions, and tags for each one.
+          Upload images and provide context to automatically generate high-quality training datasets for fine-tuning image generation models. A language model will analyze your images and create optimized prompts, descriptions, and tags for each one. The tool generates a downloadable dataset in JSONL format with all images included, ready for model fine-tuning.
         </p>
       </div>
 
