@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -175,14 +175,24 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
     }
   };
 
+  // Use ref to track if processing has started
+  const processingStarted = useRef(false);
+
   useEffect(() => {
-    const shouldProcess = files.length > 0 && state.stage === "idle";
+    const shouldProcess = files.length > 0 && 
+                         state.stage === "idle" && 
+                         !processingStarted.current;
+    
     if (shouldProcess) {
-      // Ensure we only start processing once
-      updateState({ stage: "processing" });
+      processingStarted.current = true;
       processImages();
     }
-  }, [files]); // Only depend on files changing, not state.stage
+
+    // Reset the ref when files change
+    return () => {
+      processingStarted.current = false;
+    };
+  }, [files]); // Only depend on files changing
 
   return (
     <div className="space-y-8">
