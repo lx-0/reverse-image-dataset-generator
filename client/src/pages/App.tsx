@@ -51,6 +51,20 @@ export function App() {
         <p className="text-lg text-muted-foreground">
           Upload images and provide context to automatically generate high-quality training datasets for fine-tuning image generation models. A language model will analyze your images and create optimized prompts, descriptions, and tags for each one. The tool generates a downloadable dataset in JSONL format with all images included, ready for model fine-tuning.
         </p>
+        <div className="bg-muted/50 border rounded-lg p-3 mt-3">
+          <p className="text-sm font-medium mb-2">Generated Dataset Format (JSONL):</p>
+          <pre className="text-sm bg-background/80 p-2 rounded overflow-x-auto">
+{`{
+  "task_type": "text_to_image",
+  "instruction": "A serene mountain landscape with snow-capped peaks...",
+  "output_image": "landscape_001.jpg"
+}
+{
+  "task_type": "text_to_image",
+  "instruction": "A vibrant sunset over the ocean with waves...",
+  "output_image": "sunset_002.jpg"
+}`}</pre>
+        </div>
       </div>
 
       {!isProcessing ? (
