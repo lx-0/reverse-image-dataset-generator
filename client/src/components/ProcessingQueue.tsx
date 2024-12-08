@@ -32,6 +32,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
     stage: "idle",
     progress: 0,
     currentFile: "",
+    currentDescription: "",
     processedImages: [],
   });
   const [datasetId, setDatasetId] = useState<string | null>(null);
@@ -165,6 +166,8 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         });
 
         const description = await processImage(file);
+        updateState({ currentDescription: description });
+        console.log(`Generated description for ${file.name}:`, description);
         processedImages.push({
           name: file.name,
           preview: file.preview,
@@ -261,11 +264,19 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
                   </div>
                 )}
               </div>
-              <div className="text-sm text-muted-foreground">
-                {state.progress < 100 ? (
-                  `${Math.min(Math.floor((state.progress / 100) * files.length), files.length)} of ${files.length} images processed`
-                ) : (
-                  "Finalizing dataset archive"
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <div>
+                  {state.progress < 100 ? (
+                    `${Math.min(Math.floor((state.progress / 100) * files.length), files.length)} of ${files.length} images processed`
+                  ) : (
+                    "Finalizing dataset archive"
+                  )}
+                </div>
+                {state.currentDescription && (
+                  <div className="mt-2 p-3 bg-muted rounded-md">
+                    <div className="font-medium mb-1">Latest Generated Description:</div>
+                    <div className="text-sm italic">{state.currentDescription}</div>
+                  </div>
                 )}
               </div>
             </div>
