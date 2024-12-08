@@ -58,9 +58,13 @@ export function App() {
           Generate datasets for fine-tuning image generation models by analyzing your images. Our AI creates optimized prompts and tags that enhance model training effectiveness.
         </p>
         <Collapsible>
-          <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors data-[state=open]:[&>svg]:rotate-180">
-            <ChevronDown className="h-4 w-4 transition-transform duration-200" />
-            Generated Dataset Format (JSONL)
+          <CollapsibleTrigger asChild>
+            <button className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group">
+              <span className="transition-transform duration-200 transform group-data-[state=open]:rotate-180">
+                <ChevronDown className="h-4 w-4" />
+              </span>
+              Generated Dataset Format (JSONL)
+            </button>
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-2">
             <div className="bg-muted/50 border rounded-lg p-3">
