@@ -301,11 +301,11 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         ) : state.stage === "processing" ? (
           <div className="space-y-6">
             {description && description.trim() !== "" && (
-              <div className="p-3 bg-muted rounded-md border">
-                <div className="font-medium text-sm text-primary mb-1">
+              <div className="bg-secondary/20 px-4 py-3 rounded-lg">
+                <div className="text-xs font-medium text-secondary-foreground/70 mb-1">
                   Context for Image Analysis:
                 </div>
-                <div className="text-sm text-muted-foreground">
+                <div className="text-sm text-secondary-foreground">
                   {description}
                 </div>
               </div>
@@ -333,24 +333,6 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
               
               <Progress value={state.progress} className="w-full relative overflow-hidden after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/25 after:to-transparent after:animate-shimmer" />
               <div className="space-y-4">
-                <div className="text-sm text-muted-foreground">
-                  <span className={state.progress < 100 ? "animate-pulse" : ""}>
-                    {state.progress < 100
-                      ? `${state.generatedDescriptions.length} of ${files.length} images processed`
-                      : "Finalizing dataset archive"}
-                  </span>
-                </div>
-
-                {description && description.trim() !== "" && (
-                  <div className="mt-4 p-3 bg-muted rounded-md border">
-                    <div className="font-medium text-sm text-primary mb-1">
-                      Context for Image Analysis:
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {description}
-                    </div>
-                  </div>
-                )}
                 {state.generatedDescriptions.length > 0 && (
                   <div className="mt-4 space-y-3 border rounded-lg p-4 bg-background/50 backdrop-blur-sm">
                     <div className="font-medium text-base">
