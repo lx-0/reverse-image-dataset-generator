@@ -73,7 +73,7 @@ The application will be available at `http://localhost:5000`
    
    The JSONL file format follows the standard text-to-image fine-tuning structure:
    ```jsonl
-   {"task_type": "text_to_image", "instruction": "Generated prompt", "output_image": "image_filename.jpg"}
+   {"task_type": "text_to_image", "instruction": "Generated prompt", "input_images": [], "output_image": "image_filename.jpg"}
    ```
    
    Each line in the JSONL file corresponds to one image and contains:

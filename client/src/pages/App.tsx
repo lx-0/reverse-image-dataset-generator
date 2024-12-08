@@ -6,12 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ImageFile } from "../lib/types";
 import { MODELS, type Model } from "../lib/models";
@@ -48,23 +54,33 @@ export function App() {
         <h1 className="text-4xl font-bold mb-3">
           Reverse Image Dataset Generator
         </h1>
-        <p className="text-lg text-muted-foreground">
+        <p className="text-lg text-muted-foreground mb-4">
           Upload images and provide context to automatically generate high-quality training datasets for fine-tuning image generation models. A language model will analyze your images and create optimized prompts, descriptions, and tags for each one. The tool generates a downloadable dataset in JSONL format with all images included, ready for model fine-tuning.
         </p>
-        <div className="bg-muted/50 border rounded-lg p-3 mt-3">
-          <p className="text-sm font-medium mb-2">Generated Dataset Format (JSONL):</p>
-          <pre className="text-sm bg-background/80 p-2 rounded overflow-x-auto">
+        <Collapsible>
+          <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <ChevronDown className="h-4 w-4 transition-transform duration-200" />
+            Generated Dataset Format (JSONL)
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2">
+            <div className="bg-muted/50 border rounded-lg p-3">
+              <pre className="text-sm bg-background/80 p-2 rounded overflow-x-auto">
 {`{
   "task_type": "text_to_image",
   "instruction": "A serene mountain landscape with snow-capped peaks...",
+  "input_images": [],
   "output_image": "landscape_001.jpg"
 }
 {
   "task_type": "text_to_image",
   "instruction": "A vibrant sunset over the ocean with waves...",
+  "input_images": [],
   "output_image": "sunset_002.jpg"
-}`}</pre>
-        </div>
+}`}
+              </pre>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
 
       {!isProcessing ? (
@@ -88,7 +104,10 @@ export function App() {
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <div>
-                        <label htmlFor="model-select" className="text-sm font-medium">
+                        <label
+                          htmlFor="model-select"
+                          className="text-sm font-medium"
+                        >
                           AI Model
                         </label>
                         <p className="text-sm text-muted-foreground">
@@ -119,7 +138,10 @@ export function App() {
 
                   <div className="space-y-3">
                     <div>
-                      <label htmlFor="description" className="text-sm font-medium">
+                      <label
+                        htmlFor="description"
+                        className="text-sm font-medium"
+                      >
                         Context Description
                       </label>
                       <p className="text-sm text-muted-foreground mb-2">
@@ -136,7 +158,8 @@ export function App() {
                     <div className="bg-muted/50 border rounded-lg p-3">
                       <p className="text-sm font-medium mb-1">Example</p>
                       <p className="text-sm text-muted-foreground italic">
-                        The man on the images is named Alex. Those were taken during a multi-day hiking trip in Iceland.
+                        The man on the images is named Alex. Those were taken
+                        during a multi-day hiking trip in Iceland.
                       </p>
                     </div>
                   </div>
