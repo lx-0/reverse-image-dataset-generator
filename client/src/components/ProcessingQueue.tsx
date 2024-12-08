@@ -130,16 +130,25 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
   const { toast } = useToast();
 
   const cleanup = useCallback(() => {
-    if (processingRef.current.controller) {
+    const ref = processingRef.current;
+    if (!ref) return;
+
+    // First mark as inactive to prevent new operations
+    ref.isActive = false;
+
+    // Then safely abort controller if it exists
+    if (ref.controller) {
       try {
-        processingRef.current.controller.abort();
+        // Only abort if the controller hasn't been aborted yet
+        if (ref.controller.signal && !ref.controller.signal.aborted) {
+          ref.controller.abort();
+        }
       } catch (e) {
         console.error('Error during cleanup:', e);
       } finally {
-        processingRef.current.controller = null;
+        ref.controller = null;
       }
     }
-    processingRef.current.isActive = false;
   }, []);
 
   // Safe state update that checks if component is still mounted
@@ -384,10 +393,12 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
   }, [files, analyzeImage, createDataset, handleError, cleanup, safeSetState]);
 
   useEffect(() => {
+    let mounted = true;
+
     // Only start processing if we have files and we're in idle state
-    if (files.length > 0 && state.stage === "idle") {
+    if (files.length > 0 && state.stage === "idle" && mounted) {
       processImages().catch(error => {
-        if (!isAbortError(error)) {
+        if (mounted && !isAbortError(error)) {
           console.error('Processing error:', error);
         }
       });
@@ -395,7 +406,11 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
 
     // Cleanup function
     return () => {
-      cleanup();
+      mounted = false;
+      // Ensure we're cleaning up on unmount
+      requestAnimationFrame(() => {
+        cleanup();
+      });
     };
   }, [files, state.stage, processImages, cleanup]);
 
