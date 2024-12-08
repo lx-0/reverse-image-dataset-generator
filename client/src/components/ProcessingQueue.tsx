@@ -19,11 +19,18 @@ interface ProcessedImage {
   description: string;
 }
 
+interface GeneratedDescription {
+  filename: string;
+  description: string;
+  timestamp: number;
+}
+
 interface State {
   stage: Stage;
   progress: number;
   currentFile: string;
   processedImages: ProcessedImage[];
+  generatedDescriptions: GeneratedDescription[];
   error?: string;
 }
 
@@ -32,8 +39,8 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
     stage: "idle",
     progress: 0,
     currentFile: "",
-    currentDescription: "",
     processedImages: [],
+    generatedDescriptions: [],
   });
   const [datasetId, setDatasetId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -129,7 +136,6 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
       isProcessing: processingRef.current
     });
 
-    // Only process if we're in idle state and not already processing
     if (state.stage !== "idle" || processingRef.current) {
       console.log('ProcessingQueue: processing skipped - busy or not idle');
       return;
@@ -138,7 +144,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
     try {
       processingRef.current = true;
       console.log('ProcessingQueue: starting processing');
-      abortControllerRef.current?.abort(); // Abort any existing process
+      abortControllerRef.current?.abort();
       abortControllerRef.current = new AbortController();
 
       updateState({ 
@@ -146,13 +152,13 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         progress: 0, 
         currentFile: "", 
         processedImages: [],
+        generatedDescriptions: [],
         error: undefined
       });
       
       const processedImages: ProcessedImage[] = [];
       
       for (let i = 0; i < files.length; i++) {
-        // Check if processing was aborted
         if (abortControllerRef.current?.signal.aborted) {
           throw new Error('Processing was aborted');
         }
@@ -166,7 +172,17 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         });
 
         const description = await processImage(file);
-        updateState({ currentDescription: description });
+        updateState(state => ({
+          ...state,
+          generatedDescriptions: [
+            ...state.generatedDescriptions,
+            {
+              filename: file.name,
+              description,
+              timestamp: Date.now()
+            }
+          ]
+        }));
         console.log(`Generated description for ${file.name}:`, description);
         processedImages.push({
           name: file.name,
@@ -175,7 +191,6 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         });
       }
 
-      // Check if processing was aborted before creating dataset
       if (abortControllerRef.current?.signal.aborted) {
         throw new Error('Processing was aborted');
       }
@@ -196,7 +211,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
       });
     } catch (error) {
       if (abortControllerRef.current?.signal.aborted) {
-        return; // Don't show error for aborted operations
+        return;
       }
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       updateState({ 
@@ -216,13 +231,11 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
   }, [files, state.stage, toast]);
 
   useEffect(() => {
-    // Only process if we have files and we're in idle state
     if (files.length > 0 && state.stage === "idle") {
       console.log('ProcessingQueue: initiating processing for', files.length, 'files');
       processImages();
     }
     
-    // Cancel any pending requests on unmount
     return () => {
       abortControllerRef.current?.abort();
       abortControllerRef.current = null;
@@ -264,7 +277,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
                   </div>
                 )}
               </div>
-              <div className="space-y-2 text-sm text-muted-foreground">
+              <div className="space-y-4 text-sm text-muted-foreground">
                 <div>
                   {state.progress < 100 ? (
                     `${Math.min(Math.floor((state.progress / 100) * files.length), files.length)} of ${files.length} images processed`
@@ -272,10 +285,17 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
                     "Finalizing dataset archive"
                   )}
                 </div>
-                {state.currentDescription && (
-                  <div className="mt-2 p-3 bg-muted rounded-md">
-                    <div className="font-medium mb-1">Latest Generated Description:</div>
-                    <div className="text-sm italic">{state.currentDescription}</div>
+                {state.generatedDescriptions.length > 0 && (
+                  <div className="mt-4 space-y-3">
+                    <div className="font-medium">Generated Descriptions:</div>
+                    <div className="max-h-64 overflow-y-auto space-y-2">
+                      {state.generatedDescriptions.map((desc, index) => (
+                        <div key={index} className="p-3 bg-muted rounded-md">
+                          <div className="font-medium text-xs mb-1">{desc.filename}</div>
+                          <div className="text-sm italic">{desc.description}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
