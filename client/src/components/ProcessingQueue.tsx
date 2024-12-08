@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import type { ImageFile } from "../lib/types";
+import { MODELS } from "../lib/models";
 import type {
   GenerateDescriptionResponse,
   ReverseImageGenerationResponse,
@@ -42,7 +43,12 @@ interface State {
   error?: string;
 }
 
-export function ProcessingQueue({ files, description, model, onComplete }: Props) {
+export function ProcessingQueue({
+  files,
+  description,
+  model,
+  onComplete,
+}: Props) {
   const [state, setState] = useState<State>({
     stage: "idle",
     progress: 0,
@@ -83,7 +89,7 @@ export function ProcessingQueue({ files, description, model, onComplete }: Props
           image: base64Data,
           filename: file.name,
           context: description,
-          model: model,
+          model,
         }),
       });
 
@@ -120,6 +126,7 @@ export function ProcessingQueue({ files, description, model, onComplete }: Props
       });
 
       formData.append("description", description);
+      formData.append("model", model);
       formData.append(
         "analyses",
         JSON.stringify({
@@ -291,105 +298,122 @@ export function ProcessingQueue({ files, description, model, onComplete }: Props
           <h2 className="text-2xl font-semibold mb-6">Processing Images</h2>
 
           {state.stage === "error" ? (
-          <div className="p-8 text-center space-y-4">
-            <div className="text-destructive text-lg font-medium">
-              Processing Error
+            <div className="p-8 text-center space-y-4">
+              <div className="text-destructive text-lg font-medium">
+                Processing Error
+              </div>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                {state.error || "An unknown error occurred"}
+              </p>
+              <Button onClick={() => processImages()} variant="outline">
+                Retry Processing
+              </Button>
             </div>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              {state.error || "An unknown error occurred"}
-            </p>
-            <Button onClick={() => processImages()} variant="outline">
-              Retry Processing
-            </Button>
-          </div>
-        ) : state.stage === "processing" ? (
-          <div className="space-y-6">
-            {description && description.trim() !== "" && (
-              <div className="bg-secondary/20 px-4 py-3 rounded-lg">
-                <div className="text-xs font-medium text-secondary-foreground/70 mb-1">
-                  Context for Image Analysis:
-                </div>
-                <div className="text-sm text-secondary-foreground">
-                  {description}
-                </div>
-              </div>
-            )}
-            
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="h-4 w-4 rounded-full border-2 border-primary border-r-transparent animate-spin" />
-                <div className="flex-1">
-                  <div className="text-sm font-medium">
-                    {state.progress < 100 ? "Analyzing images with AI vision model" : "Creating dataset archive"}
+          ) : state.stage === "processing" ? (
+            <div className="space-y-6">
+              {description && description.trim() !== "" && (
+                <div className="bg-secondary/20 px-4 py-3 rounded-lg">
+                  <div className="text-xs font-medium text-secondary-foreground/70 mb-1">
+                    Context for Image Analysis:
                   </div>
-                  <div className="text-sm text-muted-foreground flex items-center gap-2">
-                    <span>{state.currentFile}</span>
-                    <span className="text-xs">•</span>
-                    <span className={state.progress < 100 ? "animate-pulse" : ""}>
-                      {state.progress < 100
-                        ? `${state.generatedDescriptions.length} of ${files.length} images processed`
-                        : "Finalizing dataset archive..."}
-                    </span>
+                  <div className="text-sm text-secondary-foreground">
+                    {description}
                   </div>
                 </div>
-                <div className="text-sm font-medium">{Math.round(state.progress)}%</div>
-              </div>
-              
-              <Progress value={state.progress} className="w-full relative overflow-hidden after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/25 after:to-transparent after:animate-shimmer" />
+              )}
+
               <div className="space-y-4">
-                {state.generatedDescriptions.length > 0 && (
-                  <div className="mt-4 space-y-3 border rounded-lg p-4 bg-background/50 backdrop-blur-sm">
-                    <div className="font-medium text-base">
-                      Generated Descriptions:
+                <div className="flex items-center gap-3">
+                  <div className="h-4 w-4 rounded-full border-2 border-primary border-r-transparent animate-spin" />
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">
+                      {state.progress < 100
+                        ? `Analyzing images with ${MODELS.find(m => m.name === model)?.title || model}`
+                        : "Creating dataset archive"}
                     </div>
-                    <div className="max-h-[400px] overflow-y-auto space-y-3 pr-2">
-                      {state.generatedDescriptions.map((desc, index) => (
-                        <div
-                          key={index}
-                          className="p-4 bg-muted rounded-lg border shadow-sm"
-                        >
-                          <div className="flex gap-4">
-                            <div className="w-32 h-32 flex-shrink-0">
-                              <img
-                                src={desc.preview}
-                                alt={desc.filename}
-                                className="w-full h-full object-cover rounded-md"
-                              />
-                            </div>
-                            <div className="flex-1">
-                              <div className="font-semibold text-sm mb-2 text-primary">
-                                {desc.filename}
+                    <div className="text-sm text-muted-foreground flex items-center gap-2">
+                      <span>{state.currentFile}</span>
+                      <span className="text-xs">•</span>
+                      <span
+                        className={state.progress < 100 ? "animate-pulse" : ""}
+                      >
+                        {state.progress < 100
+                          ? `${state.generatedDescriptions.length} of ${files.length} images processed`
+                          : "Finalizing dataset archive..."}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-sm font-medium">
+                    {Math.round(state.progress)}%
+                  </div>
+                </div>
+
+                <Progress
+                  value={state.progress}
+                  className="w-full relative overflow-hidden after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/25 after:to-transparent after:animate-shimmer"
+                />
+                <div className="space-y-4">
+                  {state.generatedDescriptions.length > 0 && (
+                    <div className="mt-4 space-y-3 border rounded-lg p-4 bg-background/50 backdrop-blur-sm">
+                      <div className="font-medium text-base">
+                        Generated Descriptions:
+                      </div>
+                      <div className="max-h-[400px] overflow-y-auto space-y-3 pr-2">
+                        {state.generatedDescriptions.map((desc, index) => (
+                          <div
+                            key={index}
+                            className="p-4 bg-muted rounded-lg border shadow-sm"
+                          >
+                            <div className="flex gap-4">
+                              <div className="w-32 h-32 flex-shrink-0">
+                                <img
+                                  src={desc.preview}
+                                  alt={desc.filename}
+                                  className="w-full h-full object-cover rounded-md"
+                                />
                               </div>
-                              <div className="text-sm text-muted-foreground mb-2">
-                                {desc.description}
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                {desc.tags.map((tag, tagIndex) => (
-                                  <span
-                                    key={tagIndex}
-                                    className="px-2 py-1 text-xs rounded-full bg-primary/10 text-primary"
-                                  >
-                                    {tag}
-                                  </span>
-                                ))}
+                              <div className="flex-1">
+                                <div className="font-semibold text-sm mb-2 text-primary">
+                                  {desc.filename}
+                                </div>
+                                <div className="text-sm text-muted-foreground mb-2">
+                                  {desc.description}
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {desc.tags.map((tag, tagIndex) => (
+                                    <span
+                                      key={tagIndex}
+                                      className="px-2 py-1 text-xs rounded-full bg-primary/10 text-primary"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
         </Card>
       )}
 
-      {state.stage === "complete" && datasetId && state.processedImages.length > 0 && (
-        <Card className="p-6">
+      {state.stage === "complete" &&
+        datasetId &&
+        state.processedImages.length > 0 && (
+          <Card className="p-6">
             <h2 className="text-2xl font-semibold mb-4">Processing Results</h2>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-sm font-medium text-muted-foreground">Model:</span>
+              <span className="text-sm bg-primary/10 text-primary px-2 py-1 rounded-full">
+                {MODELS.find(m => m.name === model)?.title || model}
+              </span>
+            </div>
             {description && description.trim() !== "" && (
               <div className="mb-6 p-3 bg-muted rounded-md border">
                 <div className="font-medium text-sm text-primary mb-1">

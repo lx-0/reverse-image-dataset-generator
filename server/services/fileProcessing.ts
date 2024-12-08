@@ -1,8 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import archiver from "archiver";
-import type { DatasetEntry } from "../../client/src/lib/types";
-import type { DatasetMetadata } from "../types";
+import type { DatasetEntry, DatasetMetadata } from "../types";
 
 export async function processImages(
   files: Express.Multer.File[],

@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
+import type { Model } from "../types";
 
 export const ReverseImageGenerationResponseSchema = z.object({
   imageRecognitionDescription: z.string(),
@@ -24,6 +25,7 @@ export type GenerateDescriptionResponse =
     };
 
 export async function generateDescription(
+  model: Model["name"],
   context: string,
   base64Image: string,
 ): Promise<GenerateDescriptionResponse> {
@@ -39,7 +41,7 @@ export async function generateDescription(
     console.log("Prompt:", prompt);
 
     const response = await openai.beta.chat.completions.parse({
-      model: "gpt-4o-mini",
+      model,
       messages: [
         {
           role: "user",

@@ -13,7 +13,7 @@ export function registerRoutes(app: express.Express) {
   // Endpoint to analyze a single image
   app.post("/api/analyze", async (req, res) => {
     try {
-      const { image, filename, context } = req.body;
+      const { image, filename, context, model } = req.body;
 
       // Input validation
       if (!image || !filename) {
@@ -61,7 +61,7 @@ export function registerRoutes(app: express.Express) {
 
       try {
         console.log(`Generating description for image: ${filename}`);
-        return generateDescription(context, base64Data).then((r) =>
+        return generateDescription(model, context, base64Data).then((r) =>
           res.json(r),
         );
       } catch (error) {
@@ -82,9 +82,14 @@ export function registerRoutes(app: express.Express) {
     try {
       const files = req.files as Express.Multer.File[];
       const description = req.body.description || "";
+      const model = req.body.model;
 
       if (!files || files.length === 0) {
         throw new Error("No files uploaded");
+      }
+
+      if (!model || typeof model !== 'string') {
+        throw new Error("No model selected");
       }
 
       // Create temporary directory for processing
@@ -109,7 +114,7 @@ export function registerRoutes(app: express.Express) {
       const zipBuffer = await processImages(
         files,
         entries,
-        { context: description, analyses },
+        { model, context: description, analyses },
         tempDir,
       );
 
