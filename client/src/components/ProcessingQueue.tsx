@@ -191,7 +191,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         }
 
         const file = files[i];
-        const progress = ((i + 1) / files.length) * 100;
+        const progress = (i / files.length) * 100;
 
         updateState({
           currentFile: file.name,
@@ -320,7 +320,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
               <div className="space-y-4">
                 <div className="text-sm text-muted-foreground">
                   {state.progress < 100
-                    ? `${Math.min(Math.floor((state.progress / 100) * files.length), files.length)} of ${files.length} images processed`
+                    ? `${state.generatedDescriptions.length} of ${files.length} images processed`
                     : "Finalizing dataset archive"}
                 </div>
 
