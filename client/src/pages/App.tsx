@@ -44,9 +44,14 @@ export function App() {
 
   return (
     <div className="container mx-auto p-4 max-w-6xl">
-      <h1 className="text-4xl font-bold mb-8">
-        Reverse Image Dataset Generator
-      </h1>
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold mb-3">
+          Reverse Image Dataset Generator
+        </h1>
+        <p className="text-lg text-muted-foreground">
+          Upload your images and provide context to automatically generate high-quality training datasets for fine-tuning image generation models. Our AI will analyze your images and create optimized prompts, descriptions, and tags for each one.
+        </p>
+      </div>
 
       {!isProcessing ? (
         <>
