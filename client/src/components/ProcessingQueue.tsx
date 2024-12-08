@@ -303,15 +303,21 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
               <span>Processing: {state.currentFile}</span>
               <span>{Math.round(state.progress)}%</span>
             </div>
-            <Progress value={state.progress} className="w-full" />
+            <Progress value={state.progress} className="w-full relative overflow-hidden after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/25 after:to-transparent after:animate-shimmer" />
             <div className="space-y-2">
-              <div className="text-sm font-medium">
+              <div className="text-sm font-medium flex items-center gap-2">
                 {state.progress < 100 ? (
-                  "Analyzing images with AI vision model"
+                  <>
+                    <div className="h-4 w-4 rounded-full border-2 border-primary border-r-transparent animate-spin" />
+                    Analyzing images with AI vision model
+                  </>
                 ) : (
-                  <div className="space-y-1">
-                    <div>Creating dataset archive</div>
-                    <div className="text-xs text-muted-foreground">
+                  <div className="space-y-1 w-full">
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-4 rounded-full border-2 border-primary border-r-transparent animate-spin" />
+                      Creating dataset archive
+                    </div>
+                    <div className="text-xs text-muted-foreground animate-pulse">
                       This might take a moment while we package your dataset...
                     </div>
                   </div>
@@ -319,9 +325,11 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
               </div>
               <div className="space-y-4">
                 <div className="text-sm text-muted-foreground">
-                  {state.progress < 100
-                    ? `${state.generatedDescriptions.length} of ${files.length} images processed`
-                    : "Finalizing dataset archive"}
+                  <span className={state.progress < 100 ? "animate-pulse" : ""}>
+                    {state.progress < 100
+                      ? `${state.generatedDescriptions.length} of ${files.length} images processed`
+                      : "Finalizing dataset archive"}
+                  </span>
                 </div>
 
                 {description && description.trim() !== "" && (
