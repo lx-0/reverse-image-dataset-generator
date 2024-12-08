@@ -326,6 +326,16 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
 
                 {state.generatedDescriptions.length > 0 && (
                   <div className="mt-4 space-y-3 border rounded-lg p-4 bg-background/50 backdrop-blur-sm">
+                    {description && description.trim() !== "" && (
+                      <div className="mb-4 p-3 bg-muted rounded-md border">
+                        <div className="font-medium text-sm text-primary mb-1">
+                          Context for Image Analysis:
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {description}
+                        </div>
+                      </div>
+                    )}
                     <div className="font-medium text-base">
                       Generated Descriptions:
                     </div>
