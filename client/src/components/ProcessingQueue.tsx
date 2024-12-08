@@ -117,12 +117,20 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
     }
   };
 
+  // Track processing state with a ref to prevent duplicate processing
+  const processingRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   const processImages = useCallback(async () => {
-    if (state.stage !== "idle") {
+    // Guard against duplicate processing
+    if (processingRef.current || state.stage !== "idle") {
       return;
     }
 
     try {
+      processingRef.current = true;
+      abortControllerRef.current = new AbortController();
+
       updateState({ 
         stage: "processing", 
         progress: 0, 
@@ -134,6 +142,11 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
       const processedImages: ProcessedImage[] = [];
       
       for (let i = 0; i < files.length; i++) {
+        // Check if processing was aborted
+        if (abortControllerRef.current?.signal.aborted) {
+          throw new Error('Processing was aborted');
+        }
+
         const file = files[i];
         const progress = ((i + 1) / files.length) * 100;
         
@@ -148,6 +161,11 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
           preview: file.preview,
           description,
         });
+      }
+
+      // Check if processing was aborted before creating dataset
+      if (abortControllerRef.current?.signal.aborted) {
+        throw new Error('Processing was aborted');
       }
 
       updateState({ progress: 100 });
@@ -165,6 +183,9 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         duration: 1500
       });
     } catch (error) {
+      if (abortControllerRef.current?.signal.aborted) {
+        return; // Don't show error for aborted operations
+      }
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       updateState({ 
         stage: "error",
@@ -177,20 +198,26 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         variant: "destructive",
         duration: 1500
       });
+    } finally {
+      processingRef.current = false;
     }
   }, [files, state.stage, toast]);
 
   useEffect(() => {
-    let isMounted = true;
-
-    if (files.length > 0 && state.stage === "idle" && isMounted) {
+    // Only start processing if we have files and we're in idle state
+    if (files.length > 0 && state.stage === "idle") {
       processImages();
     }
 
+    // Cleanup function
     return () => {
-      isMounted = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      processingRef.current = false;
     };
-  }, [files, processImages]);
+  }, [files]); // Only depend on files changing
 
   return (
     <div className="space-y-8">
