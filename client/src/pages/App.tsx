@@ -55,11 +55,11 @@ export function App() {
           Reverse Image Dataset Generator
         </h1>
         <p className="text-lg text-muted-foreground mb-4">
-          Upload images and provide context to automatically generate training datasets for fine-tuning image generation models. A language model will analyze your images and create optimized prompts, descriptions, and tags for each one. The tool generates a downloadable dataset in JSONL format with all images included.
+          Upload images and provide context to automatically generate high-quality training datasets for image generation models. A language model will analyze your images and create optimized prompts, descriptions, and tags.
         </p>
         <Collapsible>
           <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors data-[state=open]:[&>svg]:rotate-180">
-            <ChevronDown className="h-4 w-4 transition-transform duration-200" />
+            <ChevronDown className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-180" />
             Generated Dataset Format (JSONL)
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-2">
