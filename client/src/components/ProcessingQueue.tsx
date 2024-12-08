@@ -282,10 +282,11 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
 
   return (
     <div className="space-y-8">
-      <Card className="p-6">
-        <h2 className="text-2xl font-semibold mb-6">Processing Images</h2>
+      {(state.stage === "processing" || state.stage === "error") && (
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-6">Processing Images</h2>
 
-        {state.stage === "error" ? (
+          {state.stage === "error" ? (
           <div className="p-8 text-center space-y-4">
             <div className="text-destructive text-lg font-medium">
               Processing Error
@@ -389,10 +390,11 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
             </div>
           </div>
         ) : null}
-      </Card>
+        </Card>
+      )}
 
       {state.stage === "complete" && datasetId && state.processedImages.length > 0 && (
-          <Card className="p-6">
+        <Card className="p-6">
             <h2 className="text-2xl font-semibold mb-4">Processing Results</h2>
             {description && description.trim() !== "" && (
               <div className="mb-6 p-3 bg-muted rounded-md border">
