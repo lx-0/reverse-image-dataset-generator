@@ -388,6 +388,16 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         state.processedImages.length > 0 && (
           <Card className="p-6">
             <h2 className="text-2xl font-semibold mb-4">Processing Results</h2>
+            {description && description.trim() !== "" && (
+              <div className="mb-6 p-3 bg-muted rounded-md border">
+                <div className="font-medium text-sm text-primary mb-1">
+                  Context for Image Analysis:
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {description}
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {state.processedImages.map((image, index) => (
                 <Card key={index} className="p-4">
