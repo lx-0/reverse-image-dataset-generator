@@ -152,7 +152,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
       toast({
         title: "Success",
         description: `Dataset created successfully with ${processedImages.length} images!`,
-        duration: 5000
+        duration: 1500
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
@@ -165,7 +165,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         title: "Processing Error",
         description: errorMessage,
         variant: "destructive",
-        duration: 5000
+        duration: 1500
       });
     }
   };
@@ -200,10 +200,23 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
             <Progress value={state.progress} className="w-full" />
             <div className="space-y-2">
               <div className="text-sm font-medium">
-                {state.progress < 100 ? "Analyzing images with AI vision model" : "Creating dataset archive"}
+                {state.progress < 100 ? (
+                  "Analyzing images with AI vision model"
+                ) : (
+                  <div className="space-y-1">
+                    <div>Creating dataset archive</div>
+                    <div className="text-xs text-muted-foreground">
+                      This might take a moment while we package your dataset...
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="text-sm text-muted-foreground">
-                {Math.min(Math.floor((state.progress / 100) * files.length), files.length)} of {files.length} images processed
+                {state.progress < 100 ? (
+                  `${Math.min(Math.floor((state.progress / 100) * files.length), files.length)} of ${files.length} images processed`
+                ) : (
+                  "Finalizing dataset archive"
+                )}
               </div>
             </div>
           </div>
