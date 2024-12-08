@@ -34,7 +34,9 @@ export function App() {
 
   return (
     <div className="container mx-auto p-4 max-w-6xl">
-      <h1 className="text-4xl font-bold mb-8">Dataset Creator for OmniGen</h1>
+      <h1 className="text-4xl font-bold mb-8">
+        Reverse Image Dataset Generator
+      </h1>
 
       {!isProcessing ? (
         <>
