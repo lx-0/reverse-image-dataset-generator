@@ -4,7 +4,6 @@ import path from "path";
 import fs from "fs/promises";
 import { processImages } from "./services/fileProcessing.js";
 import { generateDescription } from "./services/imageAnalysis.js";
-import type { DatasetEntry } from "../client/src/lib/types";
 
 // Configure multer for handling file uploads
 const upload = multer({ dest: "uploads/" });
@@ -61,10 +60,9 @@ export function registerRoutes(app: express.Express) {
 
       try {
         console.log(`Generating description for image: ${filename}`);
-
-        const description = await generateDescription(context, base64Data);
-
-        res.json({ description });
+        return generateDescription(context, base64Data).then((r) =>
+          res.json(r),
+        );
       } catch (error) {
         console.error("Error analyzing image:", error);
         throw error;
@@ -119,7 +117,7 @@ export function registerRoutes(app: express.Express) {
       await fs.mkdir(datasetsDir, { recursive: true });
 
       // Store the ZIP file
-      const datasetPath = path.join(datasetsDir, `${datasetId}.zip`);
+      const datasetPath = path.join(datasetsDir, `dataset_${datasetId}.zip`);
       await fs.writeFile(datasetPath, zipBuffer);
 
       // Clean up temporary files

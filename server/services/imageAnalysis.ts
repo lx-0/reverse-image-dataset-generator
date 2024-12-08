@@ -2,18 +2,19 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 
+export const ReverseImageGenerationResponseSchema = z.object({
+  imageRecognitionDescription: z.string(),
+  imageGenerationPrompt: z.string(),
+  imageTags: z.array(z.string()),
+});
+
 export async function generateDescription(
   context: string,
   base64Image: string,
-): Promise<string> {
+): Promise<z.infer<typeof ReverseImageGenerationResponseSchema>> {
   try {
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
-    });
-
-    const ReverseImageGenerationResponse = z.object({
-      imageRecognitionDescription: z.string(),
-      imageGenerationPrompt: z.string(),
     });
 
     const hasContext = context.trim() !== "";
@@ -42,7 +43,7 @@ export async function generateDescription(
         },
       ],
       response_format: zodResponseFormat(
-        ReverseImageGenerationResponse,
+        ReverseImageGenerationResponseSchema,
         "reverse_image_generation",
       ),
       // max_tokens: 200,
@@ -53,7 +54,7 @@ export async function generateDescription(
 
     if (reverse_image_generation_response.parsed) {
       // console.log("Raw resonse:", reverse_image_generation_response.parsed);
-      return reverse_image_generation_response.parsed.imageGenerationPrompt;
+      return reverse_image_generation_response.parsed;
     } else if (reverse_image_generation_response.refusal) {
       // handle refusal
       console.error(

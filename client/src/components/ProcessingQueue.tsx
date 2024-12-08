@@ -4,6 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import type { ImageFile } from "../lib/types";
+import { z } from "zod";
+import { ReverseImageGenerationResponseSchema } from "../../../server/services/imageAnalysis";
 
 interface Props {
   files: ImageFile[];
@@ -17,11 +19,13 @@ interface ProcessedImage {
   name: string;
   preview: string;
   description: string;
+  tags: string[];
 }
 
 interface GeneratedDescription {
   filename: string;
   description: string;
+  tags: string[];
   timestamp: number;
   preview: string;
 }
@@ -50,7 +54,9 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
     setState((curr) => ({ ...curr, ...update }));
   };
 
-  const processImage = async (file: ImageFile): Promise<string> => {
+  const processImage = async (
+    file: ImageFile,
+  ): Promise<z.infer<typeof ReverseImageGenerationResponseSchema>> => {
     try {
       // Convert File to base64
       const base64Data = await new Promise<string>((resolve, reject) => {
@@ -84,8 +90,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         );
       }
 
-      const data = await response.json();
-      return data.description;
+      return response.json();
     } catch (error) {
       throw new Error(
         `Failed to process image ${file.name}: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -195,7 +200,8 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
           generatedDescriptions: [
             {
               filename: file.name,
-              description,
+              description: description.imageGenerationPrompt,
+              tags: description.imageTags,
               timestamp: Date.now(),
               preview: file.preview,
             },
@@ -206,7 +212,8 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         processedImages.push({
           name: file.name,
           preview: file.preview,
-          description,
+          description: description.imageGenerationPrompt,
+          tags: description.imageTags,
         });
       }
 
@@ -333,8 +340,18 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
                               <div className="font-semibold text-sm mb-2 text-primary">
                                 {desc.filename}
                               </div>
-                              <div className="text-sm text-muted-foreground">
+                              <div className="text-sm text-muted-foreground mb-2">
                                 {desc.description}
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {desc.tags.map((tag, tagIndex) => (
+                                  <span
+                                    key={tagIndex}
+                                    className="px-2 py-1 text-xs rounded-full bg-primary/10 text-primary"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
                               </div>
                             </div>
                           </div>
