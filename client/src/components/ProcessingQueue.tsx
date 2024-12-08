@@ -119,22 +119,24 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
   };
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const processingRef = useRef(false);
 
   const processImages = useCallback(async () => {
     console.log('ProcessingQueue: processImages called', {
       stage: state.stage,
-      filesCount: files.length
+      filesCount: files.length,
+      isProcessing: processingRef.current
     });
 
-    // Only process if we're in idle state
-    if (state.stage !== "idle") {
-      console.log('ProcessingQueue: processing skipped - not in idle state');
+    // Only process if we're in idle state and not already processing
+    if (state.stage !== "idle" || processingRef.current) {
+      console.log('ProcessingQueue: processing skipped - busy or not idle');
       return;
     }
 
     try {
-      console.log('ProcessingQueue: starting processing');
       processingRef.current = true;
+      console.log('ProcessingQueue: starting processing');
       abortControllerRef.current?.abort(); // Abort any existing process
       abortControllerRef.current = new AbortController();
 
