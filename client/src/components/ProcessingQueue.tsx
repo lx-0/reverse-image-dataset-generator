@@ -117,24 +117,19 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
     }
   };
 
-  // Track processing state with a ref to prevent duplicate processing
-  const processingRef = useRef(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  // Track mounted state to handle strict mode double mount
-  const isMountedRef = useRef(false);
+  // Single ref to track cleanup state across remounts
+  const cleanupRef = useRef(false);
 
   const processImages = useCallback(async () => {
-    // Guard against duplicate processing and ensure we only process on the second mount in strict mode
-    if (processingRef.current || !isMountedRef.current || state.stage !== "idle") {
+    // Only process if we haven't started yet and we're idle
+    if (cleanupRef.current || state.stage !== "idle") {
       return;
     }
 
-    try {
-      processingRef.current = true;
-      abortControllerRef.current?.abort(); // Abort any existing process
-      abortControllerRef.current = new AbortController();
+    // Set cleanup state to prevent duplicate processing
+    cleanupRef.current = true;
 
+    try {
       updateState({ 
         stage: "processing", 
         progress: 0, 
@@ -203,29 +198,25 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         duration: 1500
       });
     } finally {
-      processingRef.current = false;
+      // Reset cleanup state after processing completes
+      cleanupRef.current = false;
     }
-  }, [files, state.stage, toast]);
+  }, [state.stage, toast]); // Remove files from dependencies
 
   useEffect(() => {
-    // Set mounted ref to true after initial mount
-    isMountedRef.current = true;
+    // Reset cleanup state on mount
+    cleanupRef.current = false;
 
-    // Only start processing if we have files and we're in idle state
-    if (files.length > 0 && state.stage === "idle" && isMountedRef.current) {
+    // Start processing if we have files and we're idle
+    if (files.length > 0 && state.stage === "idle") {
       processImages();
     }
 
-    // Cleanup function
+    // Cleanup function - reset state when unmounting
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-      processingRef.current = false;
-      isMountedRef.current = false;
+      cleanupRef.current = false;
     };
-  }, [files, processImages]); // Include processImages in dependencies
+  }, [files]); // Only depend on files changing
 
   return (
     <div className="space-y-8">
