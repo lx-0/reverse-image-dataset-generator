@@ -144,7 +144,11 @@ export function registerRoutes(app: express.Express) {
   app.get("/api/datasets/:id", async (req, res) => {
     try {
       const datasetId = req.params.id;
-      const datasetPath = path.join("uploads", "datasets", `${datasetId}.zip`);
+      const datasetPath = path.join(
+        "uploads",
+        "datasets",
+        `dataset_${datasetId}.zip`,
+      );
 
       if (
         !(await fs

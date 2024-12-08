@@ -4,7 +4,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import type { ImageFile } from "../lib/types";
-import { GenerateDescriptionResponse } from "../../../server/services/imageAnalysis";
+import type {
+  GenerateDescriptionResponse,
+  ReverseImageGenerationResponse,
+} from "../../../server/services/imageAnalysis";
 
 interface Props {
   files: ImageFile[];
