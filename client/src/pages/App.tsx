@@ -60,8 +60,8 @@ export function App() {
                   className="mb-4"
                 />
                 <i>
-                  Example: The man on the images is called Alex. Those were
-                  taken on a multi day hiking trip in Iceland.
+                  Example: The man on the images is named Alex. Those were taken
+                  during a multi-day hiking trip in Iceland.
                 </i>
               </Card>
 
