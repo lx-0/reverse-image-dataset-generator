@@ -118,8 +118,13 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
   };
 
   const processImages = async () => {
+    // Guard against multiple processing attempts
+    if (state.stage !== "idle" && state.stage !== "processing") {
+      return;
+    }
+    
     try {
-      updateState({ stage: "processing", progress: 0 });
+      updateState({ stage: "processing", progress: 0, currentFile: "", processedImages: [] });
       
       const processedImages: ProcessedImage[] = [];
       
@@ -171,10 +176,13 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
   };
 
   useEffect(() => {
-    if (files.length > 0 && state.stage === "idle") {
+    const shouldProcess = files.length > 0 && state.stage === "idle";
+    if (shouldProcess) {
+      // Ensure we only start processing once
+      updateState({ stage: "processing" });
       processImages();
     }
-  }, [files, state.stage]);
+  }, [files]); // Only depend on files changing, not state.stage
 
   return (
     <div className="space-y-8">
