@@ -1,15 +1,17 @@
-# OmniGen Dataset Creation Tool
+# Reverse Image Dataset Generator
 
-A powerful dataset creation tool for OmniGen fine-tuning, featuring LLM-powered image description generation. This tool helps you create high-quality datasets for image generation models by automatically generating detailed descriptions and tags for your images.
+A specialized tool that automates the creation of text-to-image training datasets by performing reverse prompt generation on input images. Using GPT-4 Vision, it analyzes images and generates optimized text-to-image prompts, making it ideal for fine-tuning image generation models like OmniGen. The tool creates standardized datasets that include both the original images and their corresponding generated prompts, streamlining the process of creating high-quality training data.
 
 ## Features
 
-- **Intelligent Image Analysis**: Uses GPT-4 Vision to generate detailed descriptions and relevant tags for images
-- **Context-Aware Processing**: Incorporates user-provided context to generate more relevant descriptions
-- **Batch Processing**: Process multiple images simultaneously
-- **Real-time Progress Tracking**: Visual feedback on processing status
-- **Dataset Export**: Generates standardized datasets ready for fine-tuning
-- **Preview Interface**: Visual preview of processed images with their descriptions and tags
+- **Automated Prompt Generation**: Leverages GPT-4 Vision to analyze images and generate optimized text-to-image prompts
+- **Reverse Engineering Descriptions**: Creates detailed image descriptions suitable for training image generation models
+- **Context-Aware Analysis**: Incorporates user-provided context to generate more relevant and specific prompts
+- **Batch Processing**: Efficiently handles multiple images simultaneously with real-time progress tracking
+- **Smart Tagging System**: Automatically generates relevant tags to enhance dataset organization and searchability
+- **Standardized Export**: Creates properly formatted datasets ready for model fine-tuning
+- **Interactive Preview**: Visual interface for reviewing generated prompts, descriptions, and tags alongside images
+- **JSONL Format**: Exports data in the standard JSONL format required for fine-tuning workflows
 
 ## Tech Stack
 
