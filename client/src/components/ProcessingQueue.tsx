@@ -113,18 +113,26 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
   });
   const [datasetId, setDatasetId] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const processingRef = useRef<boolean>(false);
   const { toast } = useToast();
 
   const cleanup = useCallback(() => {
     if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
+      try {
+        abortControllerRef.current.abort();
+      } catch (e) {
+        console.error('Error during cleanup:', e);
+      } finally {
+        abortControllerRef.current = null;
+      }
     }
+    processingRef.current = false;
   }, []);
 
   const handleError = useCallback((error: Error) => {
     console.error('Processing error:', error);
-    if (error.name !== 'AbortError') {
+    // Only handle non-abort errors when we're still processing
+    if (error.name !== 'AbortError' && processingRef.current) {
       setState(prev => ({
         ...prev,
         stage: "error",
@@ -137,7 +145,8 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         variant: "destructive",
       });
     }
-  }, [toast]);
+    cleanup();
+  }, [toast, cleanup]);
 
   const analyzeImage = useCallback(async (file: ImageFile, signal: AbortSignal) => {
     const MAX_RETRIES = 3;
@@ -221,9 +230,15 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
   }, [files, description, state.processedImages, toast]);
 
   const processImages = useCallback(async () => {
+    // Don't start if already processing
+    if (processingRef.current) {
+      return;
+    }
+
     cleanup();
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    processingRef.current = true;
 
     try {
       setState({
@@ -234,7 +249,13 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         retryCount: 0,
       });
 
+      const processedResults = [];
       for (let i = 0; i < files.length; i++) {
+        // Check if processing was aborted
+        if (!processingRef.current) {
+          throw new Error('Processing was aborted');
+        }
+
         const file = files[i];
         setState(prev => ({
           ...prev,
@@ -242,29 +263,40 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
           currentFile: file.name,
         }));
 
-        const description = await analyzeImage(file, controller.signal);
-        
-        setState(prev => ({
-          ...prev,
-          stage: "generating",
-          progress: ((i + 1) / files.length) * 100,
-          currentFile: file.name,
-          processedImages: [
-            ...prev.processedImages,
-            {
-              name: file.name,
-              preview: file.preview,
-              description,
-            }
-          ],
-        }));
+        try {
+          const description = await analyzeImage(file, controller.signal);
+          processedResults.push({
+            name: file.name,
+            preview: file.preview,
+            description,
+          });
+
+          setState(prev => ({
+            ...prev,
+            stage: "generating",
+            progress: ((i + 1) / files.length) * 100,
+            currentFile: file.name,
+            processedImages: processedResults,
+          }));
+        } catch (error) {
+          if (!processingRef.current) {
+            throw error; // Re-throw if aborted
+          }
+          console.error(`Error processing ${file.name}:`, error);
+          // Continue with next file if this one fails
+          continue;
+        }
       }
 
-      await createDataset(controller.signal);
+      if (processingRef.current && processedResults.length > 0) {
+        await createDataset(controller.signal);
+      }
     } catch (error) {
       if (error instanceof Error) {
         handleError(error);
       }
+    } finally {
+      cleanup();
     }
   }, [files, analyzeImage, createDataset, handleError, cleanup]);
 
