@@ -5,6 +5,13 @@ import { ProcessingQueue } from "../components/ProcessingQueue";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { ImageFile } from "../lib/types";
 
@@ -12,7 +19,16 @@ export function App() {
   const [files, setFiles] = useState<ImageFile[]>([]);
   const [description, setDescription] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<string>("gpt-4o-mini");
   const { toast } = useToast();
+
+  const models = [
+    { id: "o1-preview", name: "O1 Preview" },
+    { id: "o1-mini", name: "O1 Mini" },
+    { id: "gpt-4o-mini", name: "GPT-4O Mini (Default)" },
+    { id: "gpt-4o", name: "GPT-4O" },
+    { id: "gpt-4o-2024-11-20", name: "GPT-4O (2024-11-20)" },
+  ];
 
   const handleProcess = () => {
     if (files.length === 0) {
@@ -55,16 +71,35 @@ export function App() {
                 <h2 className="text-2xl font-semibold mb-4">
                   Dataset Description
                 </h2>
-                <Textarea
-                  placeholder="Enter a description for your dataset..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="mb-4"
-                />
-                <i>
-                  Example: The man on the images is named Alex. Those were taken
-                  during a multi-day hiking trip in Iceland.
-                </i>
+                <div className="space-y-4">
+                  <Textarea
+                    placeholder="Enter a description for your dataset..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <i>
+                        Example: The man on the images is named Alex. Those were taken
+                        during a multi-day hiking trip in Iceland.
+                      </i>
+                    </div>
+                    <div className="w-64">
+                      <Select value={selectedModel} onValueChange={setSelectedModel}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select AI Model" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {models.map((model) => (
+                            <SelectItem key={model.id} value={model.id}>
+                              {model.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
               </Card>
 
               <Card className="p-6 mb-8">
@@ -94,6 +129,7 @@ export function App() {
         <ProcessingQueue
           files={files}
           description={description}
+          model={selectedModel}
           onComplete={handleComplete}
         />
       )}

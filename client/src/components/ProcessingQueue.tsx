@@ -12,6 +12,7 @@ import type {
 interface Props {
   files: ImageFile[];
   description: string;
+  model: string;
   onComplete?: () => void;
 }
 
@@ -41,7 +42,7 @@ interface State {
   error?: string;
 }
 
-export function ProcessingQueue({ files, description, onComplete }: Props) {
+export function ProcessingQueue({ files, description, model, onComplete }: Props) {
   const [state, setState] = useState<State>({
     stage: "idle",
     progress: 0,
@@ -82,6 +83,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
           image: base64Data,
           filename: file.name,
           context: description,
+          model: model,
         }),
       });
 
@@ -120,13 +122,14 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
       formData.append("description", description);
       formData.append(
         "analyses",
-        JSON.stringify(
-          processedImages.map((img) => ({
+        JSON.stringify({
+          model: model,
+          images: processedImages.map((img) => ({
             filename: img.name,
             description: img.description,
             generatedTags: img.tags,
           })),
-        ),
+        }),
       );
 
       const response = await fetch("/api/process", {
