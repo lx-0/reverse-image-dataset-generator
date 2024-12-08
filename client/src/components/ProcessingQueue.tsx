@@ -300,30 +300,38 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
           </div>
         ) : state.stage === "processing" ? (
           <div className="space-y-6">
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <span>Processing: {state.currentFile}</span>
-              <span>{Math.round(state.progress)}%</span>
-            </div>
-            <Progress value={state.progress} className="w-full relative overflow-hidden after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/25 after:to-transparent after:animate-shimmer" />
-            <div className="space-y-2">
-              <div className="text-sm font-medium flex items-center gap-2">
-                {state.progress < 100 ? (
-                  <>
-                    <div className="h-4 w-4 rounded-full border-2 border-primary border-r-transparent animate-spin" />
-                    Analyzing images with AI vision model
-                  </>
-                ) : (
-                  <div className="space-y-1 w-full">
-                    <div className="flex items-center gap-2">
-                      <div className="h-4 w-4 rounded-full border-2 border-primary border-r-transparent animate-spin" />
-                      Creating dataset archive
-                    </div>
-                    <div className="text-xs text-muted-foreground animate-pulse">
-                      This might take a moment while we package your dataset...
-                    </div>
-                  </div>
-                )}
+            {description && description.trim() !== "" && (
+              <div className="p-3 bg-muted rounded-md border">
+                <div className="font-medium text-sm text-primary mb-1">
+                  Context for Image Analysis:
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {description}
+                </div>
               </div>
+            )}
+            
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-4 w-4 rounded-full border-2 border-primary border-r-transparent animate-spin" />
+                <div className="flex-1">
+                  <div className="text-sm font-medium">
+                    {state.progress < 100 ? "Analyzing images with AI vision model" : "Creating dataset archive"}
+                  </div>
+                  <div className="text-sm text-muted-foreground flex items-center gap-2">
+                    <span>{state.currentFile}</span>
+                    <span className="text-xs">•</span>
+                    <span className={state.progress < 100 ? "animate-pulse" : ""}>
+                      {state.progress < 100
+                        ? `${state.generatedDescriptions.length} of ${files.length} images processed`
+                        : "Finalizing dataset archive..."}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-sm font-medium">{Math.round(state.progress)}%</div>
+              </div>
+              
+              <Progress value={state.progress} className="w-full relative overflow-hidden after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/25 after:to-transparent after:animate-shimmer" />
               <div className="space-y-4">
                 <div className="text-sm text-muted-foreground">
                   <span className={state.progress < 100 ? "animate-pulse" : ""}>
