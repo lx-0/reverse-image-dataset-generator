@@ -1,25 +1,28 @@
 import OpenAI from "openai";
-import fs from "fs/promises";
-
-const SYSTEM_PROMPT = `You are an expert at describing images for text-to-image generation. 
-Given an image, provide a detailed description that could be used to regenerate a similar image.
-Focus on visual details, composition, and style. Be specific but concise.
-Your response should be a single paragraph without any prefixes or explanations.`;
+import { z } from "zod";
+import { zodResponseFormat } from "openai/helpers/zod";
 
 export async function generateDescription(
   context: string,
-  imagePath: string,
+  base64Image: string,
 ): Promise<string> {
-  console.log(`Generating description for image: ${imagePath}`);
   try {
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
 
-    const imageBuffer = await fs.readFile(imagePath);
-    const base64Image = imageBuffer.toString("base64");
+    const ReverseImageGenerationResponse = z.object({
+      imageRecognitionDescription: z.string(),
+      imageGenerationPrompt: z.string(),
+    });
 
-    const response = await openai.chat.completions.create({
+    const hasContext = context.trim() !== "";
+
+    const prompt = `You are a image generation prompt engineer. Please describe the provided image in detail, focusing on visual elements that would be important for regenerating a similar image. ${hasContext ? ` Integrate the provided additional context while describing the image, as this is important for the image generation: ${context}.\n\n` : ""}Then generate an optimized short prompt which would be used to generate the image${hasContext ? `, but also integrate the additional context in the generated prompt as well` : ""}.\n\nBe specific but concise.`;
+
+    console.log("Prompt:", prompt);
+
+    const response = await openai.beta.chat.completions.parse({
       model: "gpt-4o-mini",
       messages: [
         {
@@ -27,7 +30,7 @@ export async function generateDescription(
           content: [
             {
               type: "text",
-              text: `You are a image generation prompt engineer. Please describe this image in detail, focusing on visual elements that would be important for regenerating a similar image. Then generate an optimized short prompt which would be used to generate the image.${context ? `\n\nThe context of this image is ${context}` : ""}\n\nIMPORTANT: Please output ONLY the raw optimized prompt without any labelling, annotations or commentary. Do not output the image description.`,
+              text: prompt,
             },
             {
               type: "image_url",
@@ -38,20 +41,34 @@ export async function generateDescription(
           ],
         },
       ],
-      max_tokens: 200,
+      response_format: zodResponseFormat(
+        ReverseImageGenerationResponse,
+        "reverse_image_generation",
+      ),
+      // max_tokens: 200,
       temperature: 0.7,
     });
 
-    return (
-      response.choices[0]?.message?.content?.trim() ||
-      "An image from the dataset"
-    );
+    const reverse_image_generation_response = response.choices[0].message;
+
+    if (reverse_image_generation_response.parsed) {
+      // console.log("Raw resonse:", reverse_image_generation_response.parsed);
+      return reverse_image_generation_response.parsed.imageGenerationPrompt;
+    } else if (reverse_image_generation_response.refusal) {
+      // handle refusal
+      console.error(
+        "Error generating description:",
+        reverse_image_generation_response.refusal,
+      );
+    }
+
+    return "Failed to analyze image with AI.";
   } catch (error) {
     console.error("Error generating description:", error);
     if (error instanceof Error) {
       console.error("Error details:", error.message);
     }
     // Return a more specific fallback message
-    return "Failed to analyze image with AI. Using default description.";
+    return "Failed to analyze image with AI.";
   }
 }

@@ -46,7 +46,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
   const { toast } = useToast();
 
   const updateState = (update: Partial<State>) => {
-    setState(curr => ({ ...curr, ...update }));
+    setState((curr) => ({ ...curr, ...update }));
   };
 
   const processImage = async (file: ImageFile): Promise<string> => {
@@ -55,74 +55,88 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
       const base64Data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
-          if (typeof reader.result === 'string') {
+          if (typeof reader.result === "string") {
             resolve(reader.result);
           } else {
-            reject(new Error('Failed to convert image to base64'));
+            reject(new Error("Failed to convert image to base64"));
           }
         };
-        reader.onerror = () => reject(new Error('Failed to read image file'));
+        reader.onerror = () => reject(new Error("Failed to read image file"));
         reader.readAsDataURL(file.file);
       });
 
-      console.log('ProcessingQueue: making analyze API call for', file.name);
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+      console.log("ProcessingQueue: making analyze API call for", file.name);
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           image: base64Data,
-          filename: file.name 
+          filename: file.name,
+          context: description,
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.details || errorData?.error || response.statusText);
+        throw new Error(
+          errorData?.details || errorData?.error || response.statusText,
+        );
       }
 
       const data = await response.json();
       return data.description;
     } catch (error) {
-      throw new Error(`Failed to process image ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to process image ${file.name}: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     }
   };
 
-  const createDataset = async (processedImages: ProcessedImage[]): Promise<string> => {
+  const createDataset = async (
+    processedImages: ProcessedImage[],
+  ): Promise<string> => {
     try {
       const formData = new FormData();
-      
-      files.forEach(file => {
+
+      files.forEach((file) => {
         if (file.file instanceof File) {
-          formData.append('images', file.file);
+          formData.append("images", file.file);
         }
       });
-      
-      formData.append('description', description);
-      formData.append('analyses', JSON.stringify(
-        processedImages.map(img => ({
-          filename: img.name,
-          description: img.description
-        }))
-      ));
 
-      const response = await fetch('/api/process', {
-        method: 'POST',
+      formData.append("description", description);
+      formData.append(
+        "analyses",
+        JSON.stringify(
+          processedImages.map((img) => ({
+            filename: img.name,
+            description: img.description,
+          })),
+        ),
+      );
+
+      const response = await fetch("/api/process", {
+        method: "POST",
         body: formData,
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.details || errorData?.error || response.statusText);
+        throw new Error(
+          errorData?.details || errorData?.error || response.statusText,
+        );
       }
 
       const result = await response.json();
       if (!result?.datasetId) {
-        throw new Error('Server response missing dataset ID');
+        throw new Error("Server response missing dataset ID");
       }
 
       return result.datasetId;
     } catch (error) {
-      throw new Error(`Failed to create dataset: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to create dataset: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     }
   };
 
@@ -130,63 +144,63 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
   const processingRef = useRef(false);
 
   const processImages = useCallback(async () => {
-    console.log('ProcessingQueue: processImages called', {
+    console.log("ProcessingQueue: processImages called", {
       stage: state.stage,
       filesCount: files.length,
-      isProcessing: processingRef.current
+      isProcessing: processingRef.current,
     });
 
     if (state.stage !== "idle" || processingRef.current) {
-      console.log('ProcessingQueue: processing skipped - busy or not idle');
+      console.log("ProcessingQueue: processing skipped - busy or not idle");
       return;
     }
 
     try {
       processingRef.current = true;
-      console.log('ProcessingQueue: starting processing');
+      console.log("ProcessingQueue: starting processing");
       abortControllerRef.current?.abort();
       abortControllerRef.current = new AbortController();
 
-      updateState({ 
-        stage: "processing", 
-        progress: 0, 
-        currentFile: "", 
+      updateState({
+        stage: "processing",
+        progress: 0,
+        currentFile: "",
         processedImages: [],
         generatedDescriptions: [],
-        error: undefined
+        error: undefined,
       });
-      
+
       const processedImages: ProcessedImage[] = [];
-      
+
       for (let i = 0; i < files.length; i++) {
         if (abortControllerRef.current?.signal.aborted) {
-          throw new Error('Processing was aborted');
+          throw new Error("Processing was aborted");
         }
 
         const file = files[i];
         const progress = ((i + 1) / files.length) * 100;
-        
-        updateState({ 
+
+        updateState({
           currentFile: file.name,
           progress,
         });
 
         const description = await processImage(file);
         console.log(`Generated description for ${file.name}:`, description);
-        
+
         // Update state with new description
-        setState(prevState => ({
+        setState((prevState) => ({
           ...prevState,
           generatedDescriptions: [
             ...prevState.generatedDescriptions,
             {
               filename: file.name,
               description,
-              timestamp: Date.now()
-            }
-          ]
+              timestamp: Date.now(),
+            },
+          ],
         }));
-        
+
         processedImages.push({
           name: file.name,
           preview: file.preview,
@@ -195,14 +209,14 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
       }
 
       if (abortControllerRef.current?.signal.aborted) {
-        throw new Error('Processing was aborted');
+        throw new Error("Processing was aborted");
       }
 
       updateState({ progress: 100 });
       const newDatasetId = await createDataset(processedImages);
-      
+
       setDatasetId(newDatasetId);
-      updateState({ 
+      updateState({
         stage: "complete",
         processedImages,
       });
@@ -210,23 +224,24 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
       toast({
         title: "Success",
         description: `Dataset created successfully with ${processedImages.length} images!`,
-        duration: 1500
+        duration: 1500,
       });
     } catch (error) {
       if (abortControllerRef.current?.signal.aborted) {
         return;
       }
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      updateState({ 
+      const errorMessage =
+        error instanceof Error ? error.message : "An unexpected error occurred";
+      updateState({
         stage: "error",
         error: errorMessage,
       });
-      
+
       toast({
         title: "Processing Error",
         description: errorMessage,
         variant: "destructive",
-        duration: 1500
+        duration: 1500,
       });
     } finally {
       processingRef.current = false;
@@ -235,10 +250,14 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
 
   useEffect(() => {
     if (files.length > 0 && state.stage === "idle") {
-      console.log('ProcessingQueue: initiating processing for', files.length, 'files');
+      console.log(
+        "ProcessingQueue: initiating processing for",
+        files.length,
+        "files",
+      );
       processImages();
     }
-    
+
     return () => {
       abortControllerRef.current?.abort();
       abortControllerRef.current = null;
@@ -249,10 +268,12 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
     <div className="space-y-8">
       <Card className="p-6">
         <h2 className="text-2xl font-semibold mb-6">Processing Images</h2>
-        
+
         {state.stage === "error" ? (
           <div className="p-8 text-center space-y-4">
-            <div className="text-destructive text-lg font-medium">Processing Error</div>
+            <div className="text-destructive text-lg font-medium">
+              Processing Error
+            </div>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
               {state.error || "An unknown error occurred"}
             </p>
@@ -282,21 +303,28 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
               </div>
               <div className="space-y-4">
                 <div className="text-sm text-muted-foreground">
-                  {state.progress < 100 ? (
-                    `${Math.min(Math.floor((state.progress / 100) * files.length), files.length)} of ${files.length} images processed`
-                  ) : (
-                    "Finalizing dataset archive"
-                  )}
+                  {state.progress < 100
+                    ? `${Math.min(Math.floor((state.progress / 100) * files.length), files.length)} of ${files.length} images processed`
+                    : "Finalizing dataset archive"}
                 </div>
-                
+
                 {state.generatedDescriptions.length > 0 && (
                   <div className="mt-4 space-y-3 border rounded-lg p-4 bg-background/50 backdrop-blur-sm">
-                    <div className="font-medium text-base">Generated Descriptions:</div>
+                    <div className="font-medium text-base">
+                      Generated Descriptions:
+                    </div>
                     <div className="max-h-[400px] overflow-y-auto space-y-3 pr-2">
                       {state.generatedDescriptions.map((desc, index) => (
-                        <div key={index} className="p-4 bg-muted rounded-lg border shadow-sm">
-                          <div className="font-semibold text-sm mb-2 text-primary">{desc.filename}</div>
-                          <div className="text-sm text-muted-foreground">{desc.description}</div>
+                        <div
+                          key={index}
+                          className="p-4 bg-muted rounded-lg border shadow-sm"
+                        >
+                          <div className="font-semibold text-sm mb-2 text-primary">
+                            {desc.filename}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {desc.description}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -308,34 +336,42 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         ) : null}
       </Card>
 
-      {state.stage === "complete" && datasetId && state.processedImages.length > 0 && (
-        <Card className="p-6">
-          <h2 className="text-2xl font-semibold mb-4">Processing Results</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {state.processedImages.map((image, index) => (
-              <Card key={index} className="p-4">
-                <div className="aspect-video mb-4">
-                  <img
-                    src={image.preview}
-                    alt={image.name}
-                    className="w-full h-full object-cover rounded-md"
-                  />
-                </div>
-                <h3 className="font-semibold mb-2 text-sm">{image.name}</h3>
-                <p className="text-sm text-muted-foreground">{image.description}</p>
-              </Card>
-            ))}
-          </div>
-          <div className="mt-6 flex justify-end gap-4">
-            <Button variant="outline" onClick={onComplete}>
-              Back to Upload
-            </Button>
-            <Button onClick={() => window.open(`/api/datasets/${datasetId}`, '_blank')}>
-              Download Dataset
-            </Button>
-          </div>
-        </Card>
-      )}
+      {state.stage === "complete" &&
+        datasetId &&
+        state.processedImages.length > 0 && (
+          <Card className="p-6">
+            <h2 className="text-2xl font-semibold mb-4">Processing Results</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {state.processedImages.map((image, index) => (
+                <Card key={index} className="p-4">
+                  <div className="aspect-video mb-4">
+                    <img
+                      src={image.preview}
+                      alt={image.name}
+                      className="w-full h-full object-cover rounded-md"
+                    />
+                  </div>
+                  <h3 className="font-semibold mb-2 text-sm">{image.name}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {image.description}
+                  </p>
+                </Card>
+              ))}
+            </div>
+            <div className="mt-6 flex justify-end gap-4">
+              <Button variant="outline" onClick={onComplete}>
+                Back to Upload
+              </Button>
+              <Button
+                onClick={() =>
+                  window.open(`/api/datasets/${datasetId}`, "_blank")
+                }
+              >
+                Download Dataset
+              </Button>
+            </div>
+          </Card>
+        )}
     </div>
   );
 }

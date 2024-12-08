@@ -1,6 +1,5 @@
 import fs from "fs/promises";
 import path from "path";
-import { createWriteStream } from "fs";
 import archiver from "archiver";
 import type { DatasetEntry } from "../../client/src/lib/types";
 
@@ -11,7 +10,7 @@ export async function processImages(
 ): Promise<Buffer> {
   // Create JSONL file
   const jsonlPath = path.join(tempDir, "dataset.jsonl");
-  const jsonlContent = entries.map(entry => JSON.stringify(entry)).join("\n");
+  const jsonlContent = entries.map((entry) => JSON.stringify(entry)).join("\n");
   await fs.writeFile(jsonlPath, jsonlContent);
 
   // Copy images to temp directory
@@ -19,7 +18,7 @@ export async function processImages(
     files.map(async (file, index) => {
       const destPath = path.join(tempDir, file.originalname);
       await fs.copyFile(file.path, destPath);
-    })
+    }),
   );
 
   // Create ZIP file
