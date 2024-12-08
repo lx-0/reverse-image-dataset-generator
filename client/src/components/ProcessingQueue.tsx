@@ -121,14 +121,18 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
   const processingRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // Track mounted state to handle strict mode double mount
+  const isMountedRef = useRef(false);
+
   const processImages = useCallback(async () => {
-    // Guard against duplicate processing
-    if (processingRef.current || state.stage !== "idle") {
+    // Guard against duplicate processing and ensure we only process on the second mount in strict mode
+    if (processingRef.current || !isMountedRef.current || state.stage !== "idle") {
       return;
     }
 
     try {
       processingRef.current = true;
+      abortControllerRef.current?.abort(); // Abort any existing process
       abortControllerRef.current = new AbortController();
 
       updateState({ 
@@ -204,8 +208,11 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
   }, [files, state.stage, toast]);
 
   useEffect(() => {
+    // Set mounted ref to true after initial mount
+    isMountedRef.current = true;
+
     // Only start processing if we have files and we're in idle state
-    if (files.length > 0 && state.stage === "idle") {
+    if (files.length > 0 && state.stage === "idle" && isMountedRef.current) {
       processImages();
     }
 
@@ -216,8 +223,9 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         abortControllerRef.current = null;
       }
       processingRef.current = false;
+      isMountedRef.current = false;
     };
-  }, [files]); // Only depend on files changing
+  }, [files, processImages]); // Include processImages in dependencies
 
   return (
     <div className="space-y-8">
