@@ -11,6 +11,7 @@ interface Props {
   onComplete?: () => void;
 }
 
+// Define the possible states and transitions
 type ProcessingStage = "idle" | "analyzing" | "generating" | "archiving" | "complete" | "error";
 
 interface ProcessedImage {
@@ -26,6 +27,16 @@ interface ProcessingState {
   processedImages: ProcessedImage[];
   error?: string;
   retryCount: number;
+}
+
+interface ProcessingRef {
+  isActive: boolean;
+  controller: AbortController | null;
+}
+
+// Type guard for checking if processing is aborted
+function isAbortError(error: unknown): error is Error {
+  return error instanceof Error && error.name === 'AbortError';
 }
 
 // Components
@@ -112,21 +123,32 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
     retryCount: 0,
   });
   const [datasetId, setDatasetId] = useState<string | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const processingRef = useRef<boolean>(false);
+  const processingRef = useRef<ProcessingRef>({
+    isActive: false,
+    controller: null
+  });
   const { toast } = useToast();
 
   const cleanup = useCallback(() => {
-    if (abortControllerRef.current) {
+    if (processingRef.current.controller) {
       try {
-        abortControllerRef.current.abort();
+        processingRef.current.controller.abort();
       } catch (e) {
         console.error('Error during cleanup:', e);
       } finally {
-        abortControllerRef.current = null;
+        processingRef.current.controller = null;
       }
     }
-    processingRef.current = false;
+    processingRef.current.isActive = false;
+  }, []);
+
+  // Safe state update that checks if component is still mounted
+  const safeSetState = useCallback((
+    updater: (prev: ProcessingState) => ProcessingState
+  ) => {
+    if (processingRef.current.isActive) {
+      setState(updater);
+    }
   }, []);
 
   const handleError = useCallback((error: Error) => {
@@ -231,81 +253,97 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
 
   const processImages = useCallback(async () => {
     // Don't start if already processing
-    if (processingRef.current) {
+    if (processingRef.current.isActive) {
       return;
     }
 
     cleanup();
     const controller = new AbortController();
-    abortControllerRef.current = controller;
-    processingRef.current = true;
+    processingRef.current = {
+      isActive: true,
+      controller
+    };
 
     try {
-      setState({
+      safeSetState(() => ({
         stage: "analyzing",
         progress: 0,
         currentFile: "",
         processedImages: [],
-        retryCount: 0,
-      });
+        retryCount: 0
+      }));
 
-      const processedResults = [];
+      const processedResults: ProcessedImage[] = [];
       for (let i = 0; i < files.length; i++) {
         // Check if processing was aborted
-        if (!processingRef.current) {
+        if (!processingRef.current.isActive) {
           throw new Error('Processing was aborted');
         }
 
         const file = files[i];
-        setState(prev => ({
+        safeSetState(prev => ({
           ...prev,
           progress: (i / files.length) * 100,
-          currentFile: file.name,
+          currentFile: file.name
         }));
 
         try {
           const description = await analyzeImage(file, controller.signal);
+          
+          // Skip if processing was aborted during API call
+          if (!processingRef.current.isActive) {
+            throw new Error('Processing was aborted');
+          }
+
           processedResults.push({
             name: file.name,
             preview: file.preview,
-            description,
+            description
           });
 
-          setState(prev => ({
+          safeSetState(prev => ({
             ...prev,
             stage: "generating",
             progress: ((i + 1) / files.length) * 100,
             currentFile: file.name,
-            processedImages: processedResults,
+            processedImages: [...processedResults]
           }));
         } catch (error) {
-          if (!processingRef.current) {
-            throw error; // Re-throw if aborted
+          if (isAbortError(error) || !processingRef.current.isActive) {
+            throw error;
           }
           console.error(`Error processing ${file.name}:`, error);
-          // Continue with next file if this one fails
           continue;
         }
       }
 
-      if (processingRef.current && processedResults.length > 0) {
+      if (processingRef.current.isActive && processedResults.length > 0) {
+        safeSetState(prev => ({ ...prev, stage: "archiving" }));
         await createDataset(controller.signal);
       }
     } catch (error) {
-      if (error instanceof Error) {
+      if (error instanceof Error && !isAbortError(error)) {
         handleError(error);
       }
     } finally {
       cleanup();
     }
-  }, [files, analyzeImage, createDataset, handleError, cleanup]);
+  }, [files, analyzeImage, createDataset, handleError, cleanup, safeSetState]);
 
   useEffect(() => {
+    // Only start processing if we have files and we're in idle state
     if (files.length > 0 && state.stage === "idle") {
-      processImages();
+      processImages().catch(error => {
+        if (!isAbortError(error)) {
+          console.error('Processing error:', error);
+        }
+      });
     }
 
-    return cleanup;
+    // Cleanup function
+    return () => {
+      cleanup();
+    };
   }, [files, state.stage, processImages, cleanup]);
 
   return (
