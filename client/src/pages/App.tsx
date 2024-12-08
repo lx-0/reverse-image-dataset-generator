@@ -81,6 +81,30 @@ export function App() {
             </div>
           </CollapsibleContent>
         </Collapsible>
+        <Collapsible>
+          <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <ChevronDown className="h-4 w-4 transition-transform duration-200" />
+            Generated Dataset Format (JSONL)
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2">
+            <div className="bg-muted/50 border rounded-lg p-3">
+              <pre className="text-sm bg-background/80 p-2 rounded overflow-x-auto">
+{`{
+  "task_type": "text_to_image",
+  "instruction": "A serene mountain landscape with snow-capped peaks...",
+  "input_images": [],
+  "output_image": "landscape_001.jpg"
+}
+{
+  "task_type": "text_to_image",
+  "instruction": "A vibrant sunset over the ocean with waves...",
+  "input_images": [],
+  "output_image": "sunset_002.jpg"
+}`}
+              </pre>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
 
       {!isProcessing ? (
