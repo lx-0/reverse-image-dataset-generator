@@ -124,6 +124,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
           processedImages.map((img) => ({
             filename: img.name,
             description: img.description,
+            generatedTags: img.tags,
           })),
         ),
       );

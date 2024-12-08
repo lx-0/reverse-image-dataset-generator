@@ -4,6 +4,7 @@ import path from "path";
 import fs from "fs/promises";
 import { processImages } from "./services/fileProcessing.js";
 import { generateDescription } from "./services/imageAnalysis.js";
+import type { Analysis } from "./types";
 
 // Configure multer for handling file uploads
 const upload = multer({ dest: "uploads/" });
@@ -91,10 +92,6 @@ export function registerRoutes(app: express.Express) {
       await fs.mkdir(tempDir, { recursive: true });
 
       // Use the provided analyses
-      interface Analysis {
-        filename: string;
-        description: string;
-      }
       const analyses: Analysis[] = JSON.parse(req.body.analyses);
       const entries = files.map((file) => {
         const analysis = analyses.find(
@@ -109,7 +106,12 @@ export function registerRoutes(app: express.Express) {
       });
 
       // Create ZIP file with JSONL and images
-      const zipBuffer = await processImages(files, entries, tempDir);
+      const zipBuffer = await processImages(
+        files,
+        entries,
+        { context: description, analyses },
+        tempDir,
+      );
 
       // Generate unique dataset ID
       const datasetId = Date.now().toString();

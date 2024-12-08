@@ -68,7 +68,12 @@ export function App() {
               </Card>
 
               <Card className="p-6 mb-8">
-                <h2 className="text-2xl font-semibold mb-4">Preview</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-semibold">Preview</h2>
+                  <Button onClick={handleProcess}>
+                    Process Dataset
+                  </Button>
+                </div>
                 <ImageGrid
                   files={files}
                   onRemove={(index) => {
