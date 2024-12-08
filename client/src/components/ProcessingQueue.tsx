@@ -11,7 +11,6 @@ interface Props {
   onComplete?: () => void;
 }
 
-// Simple state machine for processing stages
 type Stage = "idle" | "processing" | "complete" | "error";
 
 interface ProcessedImage {
@@ -28,7 +27,6 @@ interface State {
   error?: string;
 }
 
-// Main Component
 export function ProcessingQueue({ files, description, onComplete }: Props) {
   const [state, setState] = useState<State>({
     stage: "idle",
@@ -38,72 +36,14 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
   });
   const [datasetId, setDatasetId] = useState<string | null>(null);
   const { toast } = useToast();
-  
-  // Keep AbortController in a ref to ensure it's always current
-  const abortControllerRef = useState<{ current: AbortController | null }>({ current: null })[0];
 
-  // Safe state update that checks component is mounted
-  const safeSetState = useCallback((update: Partial<State>) => {
+  const updateState = (update: Partial<State>) => {
     setState(curr => ({ ...curr, ...update }));
-  }, []);
+  };
 
-  // Create a new AbortController and cleanup old one if exists
-  const getNewAbortController = useCallback(() => {
+  const processImage = async (file: ImageFile): Promise<string> => {
     try {
-      if (abortControllerRef.current?.signal && !abortControllerRef.current.signal.aborted) {
-        abortControllerRef.current.abort();
-      }
-    } catch (error) {
-      console.error("Error aborting previous controller:", error);
-    }
-    
-    abortControllerRef.current = new AbortController();
-    return abortControllerRef.current;
-  }, []);
-
-  // Cleanup function that handles all error cases
-  const cleanup = useCallback(() => {
-    try {
-      if (abortControllerRef.current?.signal && !abortControllerRef.current.signal.aborted) {
-        abortControllerRef.current.abort();
-      }
-    } catch (error) {
-      // Ignore abort errors, log others
-      if (!(error instanceof DOMException && error.name === "AbortError")) {
-        console.error("Cleanup error:", error);
-      }
-    } finally {
-      abortControllerRef.current = null;
-    }
-  }, []);
-
-  // Safe fetch wrapper that handles errors and aborts
-  const safeFetch = useCallback(async (url: string, options: RequestInit) => {
-    const controller = getNewAbortController();
-    try {
-      const response = await fetch(url, {
-        ...options,
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.details || errorData?.error || response.statusText);
-      }
-
-      return response;
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        throw error; // Rethrow abort errors
-      }
-      throw new Error(error instanceof Error ? error.message : 'Network request failed');
-    }
-  }, [getNewAbortController]);
-
-  // Process a single image with error handling
-  const processImage = useCallback(async (file: ImageFile): Promise<string> => {
-    try {
-      const response = await safeFetch('/api/analyze', {
+      const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -112,22 +52,22 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.details || errorData?.error || response.statusText);
+      }
+
       const data = await response.json();
       return data.description;
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        throw error; // Rethrow abort errors
-      }
       throw new Error(`Failed to process image ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [safeFetch]);
+  };
 
-  // Create final dataset with error handling
-  const createDataset = useCallback(async (processedImages: ProcessedImage[]): Promise<string> => {
+  const createDataset = async (processedImages: ProcessedImage[]): Promise<string> => {
     try {
       const formData = new FormData();
       
-      // Add files to FormData
       files.forEach(file => {
         if (file.file instanceof File) {
           formData.append('images', file.file);
@@ -142,10 +82,15 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         }))
       ));
 
-      const response = await safeFetch('/api/process', {
+      const response = await fetch('/api/process', {
         method: 'POST',
         body: formData,
       });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.details || errorData?.error || response.statusText);
+      }
 
       const result = await response.json();
       if (!result?.datasetId) {
@@ -154,28 +99,21 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
 
       return result.datasetId;
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        throw error; // Rethrow abort errors
-      }
       throw new Error(`Failed to create dataset: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [files, description, safeFetch]);
+  };
 
-  // Main processing function
-  const processImages = useCallback(async () => {
-    cleanup(); // Ensure clean slate
-
+  const processImages = async () => {
     try {
-      safeSetState({ stage: "processing", progress: 0 });
+      updateState({ stage: "processing", progress: 0 });
       
       const processedImages: ProcessedImage[] = [];
       
-      // Process each image
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const progress = ((i + 1) / files.length) * 100;
         
-        safeSetState({ 
+        updateState({ 
           currentFile: file.name,
           progress,
         });
@@ -188,12 +126,11 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         });
       }
 
-      // Create dataset
-      safeSetState({ progress: 100 });
+      updateState({ progress: 100 });
       const newDatasetId = await createDataset(processedImages);
       
       setDatasetId(newDatasetId);
-      safeSetState({ 
+      updateState({ 
         stage: "complete",
         processedImages,
       });
@@ -203,12 +140,8 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         description: "Dataset created successfully!"
       });
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        return; // Silently handle aborts
-      }
-      
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      safeSetState({ 
+      updateState({ 
         stage: "error",
         error: errorMessage,
       });
@@ -219,19 +152,14 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         variant: "destructive"
       });
     }
-  }, [files, processImage, createDataset, safeSetState, toast, cleanup]);
+  };
 
-  // Start processing when files are available
   useEffect(() => {
     if (files.length > 0 && state.stage === "idle") {
       processImages();
     }
-    
-    // Cleanup on unmount
-    return cleanup;
-  }, [files, state.stage, processImages, cleanup]);
+  }, [files, state.stage]);
 
-  // Render UI based on current state
   return (
     <div className="space-y-8">
       <Card className="p-6">
