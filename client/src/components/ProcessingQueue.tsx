@@ -8,6 +8,7 @@ import { MODELS } from "../lib/models";
 import type {
   GenerateDescriptionResponse,
   ReverseImageGenerationResponse,
+  ReverseImageGenerationMetadata,
 } from "../../../server/services/imageAnalysis";
 
 interface Props {
@@ -23,6 +24,7 @@ interface ProcessedImage {
   name: string;
   preview: string;
   description: string;
+  metadata: ReverseImageGenerationMetadata;
   tags: string[];
 }
 
@@ -65,7 +67,10 @@ export function ProcessingQueue({
 
   const processImage = async (
     file: ImageFile,
-  ): Promise<ReverseImageGenerationResponse> => {
+  ): Promise<{
+    data: ReverseImageGenerationResponse;
+    metadata: ReverseImageGenerationMetadata;
+  }> => {
     try {
       // Convert File to base64
       const base64Data = await new Promise<string>((resolve, reject) => {
@@ -105,7 +110,7 @@ export function ProcessingQueue({
       if (!apiResponse.ok) {
         throw new Error(apiResponse.message);
       }
-      return apiResponse.data;
+      return { data: apiResponse.data, metadata: apiResponse.metadata };
     } catch (error) {
       throw new Error(
         `Failed to process image ${file.name}: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -134,6 +139,7 @@ export function ProcessingQueue({
           images: processedImages.map((img) => ({
             filename: img.name,
             description: img.description,
+            metadata: img.metadata,
             generatedTags: img.tags,
           })),
         }),
@@ -209,7 +215,8 @@ export function ProcessingQueue({
           progress,
         });
 
-        const description = await processImage(file);
+        const { data: processedImage, metadata: processedImageMetadata } =
+          await processImage(file);
         console.log(`Generated description for ${file.name}:`, description);
 
         // Update state with new description
@@ -218,8 +225,8 @@ export function ProcessingQueue({
           generatedDescriptions: [
             {
               filename: file.name,
-              description: description.imageGenerationPrompt,
-              tags: description.imageTags,
+              description: processedImage.imageGenerationPrompt,
+              tags: processedImage.imageTags,
               timestamp: Date.now(),
               preview: file.preview,
             },
@@ -230,8 +237,9 @@ export function ProcessingQueue({
         processedImages.push({
           name: file.name,
           preview: file.preview,
-          description: description.imageGenerationPrompt,
-          tags: description.imageTags,
+          description: processedImage.imageGenerationPrompt,
+          metadata: processedImageMetadata,
+          tags: processedImage.imageTags,
         });
       }
 
@@ -328,7 +336,7 @@ export function ProcessingQueue({
                   <div className="flex-1">
                     <div className="text-sm font-medium">
                       {state.progress < 100
-                        ? `Analyzing images with ${MODELS.find(m => m.name === model)?.title || model}`
+                        ? `Analyzing images with ${MODELS.find((m) => m.name === model)?.title || model}`
                         : "Creating dataset archive"}
                     </div>
                     <div className="text-sm text-muted-foreground flex items-center gap-2">
@@ -409,9 +417,11 @@ export function ProcessingQueue({
           <Card className="p-6">
             <h2 className="text-2xl font-semibold mb-4">Processing Results</h2>
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-sm font-medium text-muted-foreground">Model:</span>
+              <span className="text-sm font-medium text-muted-foreground">
+                Model:
+              </span>
               <span className="text-sm bg-primary/10 text-primary px-2 py-1 rounded-full">
-                {MODELS.find(m => m.name === model)?.title || model}
+                {MODELS.find((m) => m.name === model)?.title || model}
               </span>
             </div>
             {description && description.trim() !== "" && (

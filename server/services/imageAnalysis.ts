@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 import type { Model } from "../types";
+import { extractMessageFromUnknownError } from "../utils";
 
 export const ReverseImageGenerationResponseSchema = z.object({
   imageRecognitionDescription: z.string(),
@@ -13,10 +14,17 @@ export type ReverseImageGenerationResponse = z.infer<
   typeof ReverseImageGenerationResponseSchema
 >;
 
+export type ReverseImageGenerationMetadata = {
+  prompt: string;
+  temperature: number;
+  usage?: OpenAI.Completions.CompletionUsage;
+};
+
 export type GenerateDescriptionResponse =
   | {
       ok: true;
       data: ReverseImageGenerationResponse;
+      metadata: ReverseImageGenerationMetadata;
     }
   | {
       ok: false;
@@ -37,8 +45,9 @@ export async function generateDescription(
     const hasContext = context.trim() !== "";
 
     const prompt = `You are a image generation prompt engineer. Your task is to generate datasets to train a diffusion model to generate certain images when referring to the user-provided context in the input prompt.\n\nPlease describe the provided image in detail, focusing on visual elements that would be important for regenerating a similar image. If people are involved, also describe their visible emotions and feelings. Also generate tags matching the description. ${hasContext ? `Integrate the user-provided context in the description and the tags while describing the image, as this is important for the image generation. If characters, places or things are mentioned in the user-provided context, ensure to include them in the tags list as well. ` : ""}Then generate an optimized short prompt which would be used to generate the image${hasContext ? `, but also integrate the user-provided context in the generated prompt as well` : ""}. Be specific but concise!${hasContext ? `\n\nThe user-provided context is:\n\n\`\`\`context\n${context}\n\`\`\`\n\nIMPORTANT: Ensure to integrate the user-provided context in the image description, the tags and the image generation prompt. The generated image generation prompt is later used to train the image generation model to produce similar images using the user-provided context. Therefore, while generating the image description, the tags and the image generation prompt, refer to all entities mentioned in the user-provided context EXPLICITLY BY THEIR GIVEN NAMES, AVOIDING GENERIC PHRASES like "a person named [name]."!!` : ""}`;
+    const temperature = 0.7;
 
-    console.log("Prompt:", prompt);
+    console.log("Prompt:", { prompt, temperature });
 
     const response = await openai.beta.chat.completions.parse({
       model,
@@ -61,47 +70,50 @@ export async function generateDescription(
       ],
       response_format: zodResponseFormat(
         ReverseImageGenerationResponseSchema,
-        "reverse_image_generation",
+        "reverse_image_dataset_generation",
       ),
       // max_tokens: 200,
-      temperature: 0.7,
+      ...(model !== "o1-mini" && { temperature }), // 'o1-mini' only supports default temperature 1.0
     });
 
-    const reverse_image_generation_response = response.choices[0].message;
+    const reverse_image_dataset_generation = response.choices[0].message;
 
-    if (reverse_image_generation_response.parsed) {
-      // console.log("Raw resonse:", reverse_image_generation_response.parsed);
-      return { ok: true, data: reverse_image_generation_response.parsed };
-    } else if (reverse_image_generation_response.refusal) {
+    if (reverse_image_dataset_generation.parsed) {
+      // console.log("Raw resonse:", reverse_image_dataset_generation.parsed);
+      return {
+        ok: true,
+        data: reverse_image_dataset_generation.parsed,
+        metadata: { prompt, temperature, usage: response.usage },
+      };
+    } else if (reverse_image_dataset_generation.refusal) {
       // handle refusal
       console.error(
         "Error generating description:",
-        reverse_image_generation_response.refusal,
+        reverse_image_dataset_generation.refusal,
       );
 
       return {
         ok: false,
-        message: "Failed to analyze image with AI.",
+        message: "Failed to analyze image.",
         error: new Error(
-          `Error generating description: ${reverse_image_generation_response.refusal}`,
+          `Error generating description: ${reverse_image_dataset_generation.refusal}`,
         ),
       };
     }
 
     return {
       ok: false,
-      message: "Failed to analyze image with AI.",
+      message: "Failed to analyze image.",
       error: new Error("Unknown"),
     };
   } catch (error) {
-    console.error("Error generating description:", error);
-    if (error instanceof Error) {
-      console.error("Error details:", error.message);
-    }
-    // Return a more specific fallback message
+    console.error(
+      `Failed to analyze image: ${extractMessageFromUnknownError(error)}`,
+      error,
+    );
     return {
       ok: false,
-      message: "Failed to analyze image with AI.",
+      message: `Failed to analyze image: ${extractMessageFromUnknownError(error)}`,
       error,
     };
   }

@@ -4,7 +4,7 @@ import path from "path";
 import fs from "fs/promises";
 import { processImages } from "./services/fileProcessing.js";
 import { generateDescription } from "./services/imageAnalysis.js";
-import type { Analysis } from "./types";
+import type { Analysis, Model } from "./types";
 
 // Configure multer for handling file uploads
 const upload = multer({ dest: "uploads/" });
@@ -88,7 +88,7 @@ export function registerRoutes(app: express.Express) {
         throw new Error("No files uploaded");
       }
 
-      if (!model || typeof model !== 'string') {
+      if (!model || typeof model !== "string") {
         throw new Error("No model selected");
       }
 
@@ -114,7 +114,7 @@ export function registerRoutes(app: express.Express) {
       const zipBuffer = await processImages(
         files,
         entries,
-        { model, context: description, analyses },
+        { model: model as Model["name"], context: description, analyses },
         tempDir,
       );
 

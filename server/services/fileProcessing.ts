@@ -18,7 +18,7 @@ export async function processImages(
 
   // Create metadata file
   const metadataPath = path.join(tempDir, "metadata.jsonl");
-  await fs.writeFile(metadataPath, JSON.stringify(metadata));
+  await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 4));
 
   // Copy images to temp directory
   await Promise.all(

@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ImageFile } from "../lib/types";
 import { MODELS, type Model } from "../lib/models";
@@ -55,13 +55,15 @@ export function App() {
           Reverse Image Dataset Generator
         </h1>
         <p className="text-lg text-muted-foreground mb-4">
-          Generate datasets for fine-tuning image generation models by analyzing your images. Our AI creates optimized prompts and tags that enhance model training effectiveness.
+          Generate datasets for fine-tuning image generation models by analyzing
+          images. A language model creates optimized prompts and tags that
+          enhance model training effectiveness.
         </p>
         <Collapsible>
           <CollapsibleTrigger asChild>
             <button className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group">
-              <span className="transition-transform duration-200 transform group-data-[state=open]:rotate-180">
-                <ChevronDown className="h-4 w-4" />
+              <span className="transition-transform duration-200 transform group-data-[state=open]:rotate-90">
+                <ChevronRight className="h-4 w-4" />
               </span>
               Generated Dataset Format (JSONL)
             </button>
@@ -69,7 +71,7 @@ export function App() {
           <CollapsibleContent className="mt-2">
             <div className="bg-muted/50 border rounded-lg p-3">
               <pre className="text-sm bg-background/80 p-2 rounded overflow-x-auto">
-{`{
+                {`{
   "task_type": "text_to_image",
   "instruction": "A serene mountain landscape with snow-capped peaks...",
   "input_images": [],
