@@ -57,44 +57,31 @@ The application will be available at `http://localhost:5000`
    - Provide optional context for better descriptions
 
 2. **Processing**:
-   - Images will be automatically processed
-   - View real-time progress and generated descriptions
-   - Each image gets:
-     - Detailed description
-     - Generation-ready prompt
-     - Relevant tags
+   - Images will be automatically processed using GPT-4 Vision
+   - View real-time progress and AI-generated content
+   - For each image, the system generates:
+     - A detailed recognition description
+     - An optimized text-to-image generation prompt
+     - Relevant semantic tags for categorization
+     - Visual preview with generated content
 
-3. **Dataset Creation**:
+3. **Dataset Creation and Format**:
    - Review generated descriptions and tags
-   - Download the complete dataset as a ZIP file
-   - The dataset includes:
-     - Original images
-     - JSONL file with prompts and metadata
+   - The tool creates a ZIP archive containing:
+     - A `dataset.jsonl` file with prompts and metadata
+     - An `images` directory with all original images
+   
+   The JSONL file format follows the standard text-to-image fine-tuning structure:
+   ```jsonl
+   {"task_type": "text_to_image", "instruction": "Generated prompt", "output_image": "image_filename.jpg"}
+   ```
+   
+   Each line in the JSONL file corresponds to one image and contains:
+   - `task_type`: Always "text_to_image" for this dataset type
+   - `instruction`: The AI-generated prompt describing the image
+   - `output_image`: The filename of the corresponding image in the images directory
 
-## API Endpoints
-
-### `POST /api/analyze`
-Analyzes a single image and generates descriptions.
-
-**Request Body**:
-```json
-{
-  "image": "base64_encoded_image_or_data_url",
-  "filename": "image_name.jpg",
-  "context": "optional_context_string"
-}
-```
-
-### `POST /api/process`
-Processes multiple images and creates a dataset.
-
-**Request Body**:
-- `images`: Array of image files (multipart/form-data)
-- `description`: Optional context string
-- `analyses`: JSON string of previous analyses
-
-### `GET /api/datasets/:id`
-Downloads a processed dataset.
+   This format is specifically designed for fine-tuning image generation models like OmniGen, ensuring compatibility with standard training pipelines.
 
 ## Environment Variables
 
