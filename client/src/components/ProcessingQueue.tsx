@@ -130,23 +130,29 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
   const { toast } = useToast();
 
   const cleanup = useCallback(() => {
+    // Safely get the current ref and check if it exists
     const ref = processingRef.current;
     if (!ref) return;
 
-    // First mark as inactive to prevent new operations
+    // Mark as inactive first to prevent new operations
     ref.isActive = false;
 
-    // Then safely abort controller if it exists
+    // Safely handle the controller
     if (ref.controller) {
+      // Store controller locally to avoid any race conditions
+      const controller = ref.controller;
+      ref.controller = null; // Clear reference first
+
       try {
-        // Only abort if the controller hasn't been aborted yet
-        if (ref.controller.signal && !ref.controller.signal.aborted) {
-          ref.controller.abort();
+        // Check if we can safely abort
+        if (controller && !controller.signal.aborted) {
+          controller.abort();
         }
       } catch (e) {
-        console.error('Error during cleanup:', e);
-      } finally {
-        ref.controller = null;
+        // Silently handle abort errors as they're expected during cleanup
+        if (!(e instanceof DOMException && e.name === 'AbortError')) {
+          console.error('Error during cleanup:', e);
+        }
       }
     }
   }, []);
@@ -407,10 +413,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
     // Cleanup function
     return () => {
       mounted = false;
-      // Ensure we're cleaning up on unmount
-      requestAnimationFrame(() => {
-        cleanup();
-      });
+      cleanup();
     };
   }, [files, state.stage, processImages, cleanup]);
 
