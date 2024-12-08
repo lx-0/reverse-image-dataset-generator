@@ -382,9 +382,19 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
                     />
                   </div>
                   <h3 className="font-semibold mb-2 text-sm">{image.name}</h3>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground mb-2">
                     {image.description}
                   </p>
+                  <div className="flex flex-wrap gap-2">
+                    {image.tags.map((tag, tagIndex) => (
+                      <span
+                        key={tagIndex}
+                        className="px-2 py-1 text-xs rounded-full bg-primary/10 text-primary"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                 </Card>
               ))}
             </div>
