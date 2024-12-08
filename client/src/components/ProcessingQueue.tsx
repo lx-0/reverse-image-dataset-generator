@@ -117,19 +117,24 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
     }
   };
 
-  // Single ref to track cleanup state across remounts
-  const cleanupRef = useRef(false);
+  // Track processing state with a ref to prevent duplicate processing
+  const processingRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Track mounted state to handle strict mode double mount
+  const isMountedRef = useRef(false);
 
   const processImages = useCallback(async () => {
-    // Only process if we haven't started yet and we're idle
-    if (cleanupRef.current || state.stage !== "idle") {
+    // Guard against duplicate processing and ensure we only process on the second mount in strict mode
+    if (processingRef.current || !isMountedRef.current || state.stage !== "idle") {
       return;
     }
 
-    // Set cleanup state to prevent duplicate processing
-    cleanupRef.current = true;
-
     try {
+      processingRef.current = true;
+      abortControllerRef.current?.abort(); // Abort any existing process
+      abortControllerRef.current = new AbortController();
+
       updateState({ 
         stage: "processing", 
         progress: 0, 
@@ -198,25 +203,29 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         duration: 1500
       });
     } finally {
-      // Reset cleanup state after processing completes
-      cleanupRef.current = false;
+      processingRef.current = false;
     }
-  }, [state.stage, toast]); // Remove files from dependencies
+  }, [files, state.stage, toast]);
 
   useEffect(() => {
-    // Reset cleanup state on mount
-    cleanupRef.current = false;
+    // Set mounted ref to true after initial mount
+    isMountedRef.current = true;
 
-    // Start processing if we have files and we're idle
-    if (files.length > 0 && state.stage === "idle") {
+    // Only start processing if we have files and we're in idle state
+    if (files.length > 0 && state.stage === "idle" && isMountedRef.current) {
       processImages();
     }
 
-    // Cleanup function - reset state when unmounting
+    // Cleanup function
     return () => {
-      cleanupRef.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      processingRef.current = false;
+      isMountedRef.current = false;
     };
-  }, [files]); // Only depend on files changing
+  }, [files, processImages]); // Include processImages in dependencies
 
   return (
     <div className="space-y-8">
