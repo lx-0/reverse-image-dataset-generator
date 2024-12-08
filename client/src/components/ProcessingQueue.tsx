@@ -118,26 +118,28 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
     }
   };
 
-  // Track processing state with a ref to prevent duplicate processing
+  // Track processing state and processed files to prevent duplicate processing
   const processingRef = useRef(false);
+  const processedFilesRef = useRef<Set<string>>(new Set());
   const abortControllerRef = useRef<AbortController | null>(null);
-
-  // Track mounted state to handle strict mode double mount
-  const isMountedRef = useRef(false);
 
   const processImages = useCallback(async () => {
     console.log('ProcessingQueue: processImages called', {
       processingRef: processingRef.current,
-      isMounted: isMountedRef.current,
+      processedFiles: Array.from(processedFilesRef.current),
       stage: state.stage,
       filesCount: files.length
     });
 
-    // Guard against duplicate processing and ensure we only process on the second mount in strict mode
-    if (processingRef.current || !isMountedRef.current || state.stage !== "idle") {
+    // Check if we've already processed these exact files
+    const currentFileSet = new Set(files.map(f => f.name));
+    const hasProcessedAll = Array.from(currentFileSet).every(f => processedFilesRef.current.has(f));
+    
+    // Guard against duplicate processing
+    if (processingRef.current || hasProcessedAll || state.stage !== "idle") {
       console.log('ProcessingQueue: processing skipped', {
         reason: processingRef.current ? 'already processing' : 
-                !isMountedRef.current ? 'not mounted' : 
+                hasProcessedAll ? 'files already processed' : 
                 'not idle'
       });
       return;
@@ -190,6 +192,9 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
       const newDatasetId = await createDataset(processedImages);
       
       setDatasetId(newDatasetId);
+      // Track successfully processed files
+      files.forEach(f => processedFilesRef.current.add(f.name));
+      
       updateState({ 
         stage: "complete",
         processedImages,
@@ -228,11 +233,8 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
       stage: state.stage
     });
 
-    // Set mounted ref to true after initial mount
-    isMountedRef.current = true;
-
     // Only start processing if we have files and we're in idle state
-    if (files.length > 0 && state.stage === "idle" && isMountedRef.current) {
+    if (files.length > 0 && state.stage === "idle") {
       console.log('ProcessingQueue: initiating processing');
       processImages();
     }
@@ -245,7 +247,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         abortControllerRef.current = null;
       }
       processingRef.current = false;
-      isMountedRef.current = false;
+      // Don't clear processedFiles on cleanup to prevent reprocessing on remount
     };
   }, [files, processImages]); // Include processImages in dependencies
 
