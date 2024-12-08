@@ -117,14 +117,19 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
     }
   };
 
-  const processImages = async () => {
-    // Guard against multiple processing attempts
-    if (state.stage !== "idle" && state.stage !== "processing") {
+  const processImages = useCallback(async () => {
+    if (state.stage !== "idle") {
       return;
     }
-    
+
     try {
-      updateState({ stage: "processing", progress: 0, currentFile: "", processedImages: [] });
+      updateState({ 
+        stage: "processing", 
+        progress: 0, 
+        currentFile: "", 
+        processedImages: [],
+        error: undefined
+      });
       
       const processedImages: ProcessedImage[] = [];
       
@@ -173,26 +178,19 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         duration: 1500
       });
     }
-  };
-
-  // Use ref to track if processing has started
-  const processingStarted = useRef(false);
+  }, [files, state.stage, toast]);
 
   useEffect(() => {
-    const shouldProcess = files.length > 0 && 
-                         state.stage === "idle" && 
-                         !processingStarted.current;
-    
-    if (shouldProcess) {
-      processingStarted.current = true;
+    let isMounted = true;
+
+    if (files.length > 0 && state.stage === "idle" && isMounted) {
       processImages();
     }
 
-    // Reset the ref when files change
     return () => {
-      processingStarted.current = false;
+      isMounted = false;
     };
-  }, [files]); // Only depend on files changing
+  }, [files, processImages]);
 
   return (
     <div className="space-y-8">
