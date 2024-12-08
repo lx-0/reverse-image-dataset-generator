@@ -62,40 +62,63 @@ export function App() {
           {files.length > 0 && (
             <>
               <Card className="p-6 mb-8">
-                <h2 className="text-2xl font-semibold mb-4">
-                  Dataset Description
+                <h2 className="text-2xl font-semibold mb-6">
+                  Dataset Settings
                 </h2>
-                <div className="space-y-4">
-                  <Textarea
-                    placeholder="Enter a description for your dataset..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                  />
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1">
-                      <i>
-                        Example: The man on the images is named Alex. Those were
-                        taken during a multi-day hiking trip in Iceland.
-                      </i>
+                <div className="space-y-6">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <label htmlFor="model-select" className="text-sm font-medium">
+                          AI Model
+                        </label>
+                        <p className="text-sm text-muted-foreground">
+                          Select which AI model to use for image analysis
+                        </p>
+                      </div>
+                      <div className="w-64">
+                        <Select
+                          value={selectedModel}
+                          onValueChange={(v: Model["name"]) =>
+                            setSelectedModel(v)
+                          }
+                        >
+                          <SelectTrigger id="model-select">
+                            <SelectValue placeholder="Select AI Model" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {MODELS.map((model) => (
+                              <SelectItem key={model.name} value={model.name}>
+                                {model.title}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    <div className="w-64">
-                      <Select
-                        value={selectedModel}
-                        onValueChange={(v: Model["name"]) =>
-                          setSelectedModel(v)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select AI Model" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {MODELS.map((model) => (
-                            <SelectItem key={model.name} value={model.name}>
-                              {model.title}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label htmlFor="description" className="text-sm font-medium">
+                        Context Description
+                      </label>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Add context to help the AI understand your images better
+                      </p>
+                    </div>
+                    <Textarea
+                      id="description"
+                      placeholder="Enter a description for your dataset..."
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      className="min-h-[100px]"
+                    />
+                    <div className="bg-muted/50 border rounded-lg p-3">
+                      <p className="text-sm font-medium mb-1">Example</p>
+                      <p className="text-sm text-muted-foreground italic">
+                        The man on the images is named Alex. Those were taken during a multi-day hiking trip in Iceland.
+                      </p>
                     </div>
                   </div>
                 </div>
