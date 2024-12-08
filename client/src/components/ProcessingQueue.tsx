@@ -57,6 +57,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
         reader.readAsDataURL(file.file);
       });
 
+      console.log('ProcessingQueue: making analyze API call for', file.name);
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -125,12 +126,25 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
   const isMountedRef = useRef(false);
 
   const processImages = useCallback(async () => {
+    console.log('ProcessingQueue: processImages called', {
+      processingRef: processingRef.current,
+      isMounted: isMountedRef.current,
+      stage: state.stage,
+      filesCount: files.length
+    });
+
     // Guard against duplicate processing and ensure we only process on the second mount in strict mode
     if (processingRef.current || !isMountedRef.current || state.stage !== "idle") {
+      console.log('ProcessingQueue: processing skipped', {
+        reason: processingRef.current ? 'already processing' : 
+                !isMountedRef.current ? 'not mounted' : 
+                'not idle'
+      });
       return;
     }
 
     try {
+      console.log('ProcessingQueue: starting processing');
       processingRef.current = true;
       abortControllerRef.current?.abort(); // Abort any existing process
       abortControllerRef.current = new AbortController();
@@ -208,16 +222,24 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
   }, [files, state.stage, toast]);
 
   useEffect(() => {
+    console.log('ProcessingQueue: mount effect triggered', {
+      wasMounted: isMountedRef.current,
+      filesCount: files.length,
+      stage: state.stage
+    });
+
     // Set mounted ref to true after initial mount
     isMountedRef.current = true;
 
     // Only start processing if we have files and we're in idle state
     if (files.length > 0 && state.stage === "idle" && isMountedRef.current) {
+      console.log('ProcessingQueue: initiating processing');
       processImages();
     }
 
     // Cleanup function
     return () => {
+      console.log('ProcessingQueue: cleanup triggered');
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
         abortControllerRef.current = null;
