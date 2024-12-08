@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,8 @@ interface Props {
   onComplete?: () => void;
 }
 
-// Define the possible states and transitions
-type ProcessingStage = "idle" | "analyzing" | "generating" | "archiving" | "complete" | "error";
+// Processing stages
+type Stage = "idle" | "analyzing" | "generating" | "archiving" | "complete" | "error";
 
 interface ProcessedImage {
   name: string;
@@ -20,23 +20,72 @@ interface ProcessedImage {
   description: string;
 }
 
-interface ProcessingState {
-  stage: ProcessingStage;
+// State management
+interface State {
+  stage: Stage;
   progress: number;
   currentFile: string;
   processedImages: ProcessedImage[];
   error?: string;
-  retryCount: number;
 }
 
-interface ProcessingRef {
-  isActive: boolean;
-  controller: AbortController | null;
-}
+type Action =
+  | { type: "START_PROCESSING" }
+  | { type: "SET_PROGRESS"; file: string; progress: number }
+  | { type: "ADD_PROCESSED_IMAGE"; image: ProcessedImage }
+  | { type: "START_ARCHIVING" }
+  | { type: "COMPLETE"; datasetId: string }
+  | { type: "ERROR"; message: string }
+  | { type: "RESET" };
 
-// Type guard for checking if processing is aborted
-function isAbortError(error: unknown): error is Error {
-  return error instanceof Error && error.name === 'AbortError';
+const initialState: State = {
+  stage: "idle",
+  progress: 0,
+  currentFile: "",
+  processedImages: [],
+};
+
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case "START_PROCESSING":
+      return {
+        ...initialState,
+        stage: "analyzing",
+      };
+    case "SET_PROGRESS":
+      return {
+        ...state,
+        currentFile: action.file,
+        progress: action.progress,
+      };
+    case "ADD_PROCESSED_IMAGE":
+      return {
+        ...state,
+        stage: "generating",
+        processedImages: [...state.processedImages, action.image],
+      };
+    case "START_ARCHIVING":
+      return {
+        ...state,
+        stage: "archiving",
+        progress: 100,
+      };
+    case "COMPLETE":
+      return {
+        ...state,
+        stage: "complete",
+      };
+    case "ERROR":
+      return {
+        ...state,
+        stage: "error",
+        error: action.message,
+      };
+    case "RESET":
+      return initialState;
+    default:
+      return state;
+  }
 }
 
 // Components
@@ -48,7 +97,7 @@ const LoadingSpinner = () => (
   </div>
 );
 
-const ProcessingView = ({ state, totalFiles }: { state: ProcessingState; totalFiles: number }) => (
+const ProcessingView = ({ state, totalFiles }: { state: State; totalFiles: number }) => (
   <div className="space-y-6">
     <div className="flex items-center justify-between text-sm text-muted-foreground">
       <span>Processing: {state.currentFile}</span>
@@ -62,7 +111,7 @@ const ProcessingView = ({ state, totalFiles }: { state: ProcessingState; totalFi
         {state.stage === "archiving" && "Creating dataset archive"}
       </div>
       <div className="text-sm text-muted-foreground">
-        {Math.floor(state.progress / (100 / totalFiles))} of {totalFiles} images processed
+        {state.processedImages.length} of {totalFiles} images processed
       </div>
     </div>
   </div>
@@ -78,11 +127,11 @@ const ErrorView = ({ error, onRetry }: { error: string; onRetry: () => void }) =
 
 const ResultsView = ({ 
   processedImages, 
-  datasetId, 
+  datasetId,
   onComplete 
 }: { 
   processedImages: ProcessedImage[]; 
-  datasetId: string; 
+  datasetId: string;
   onComplete?: () => void;
 }) => (
   <Card className="p-6">
@@ -115,307 +164,149 @@ const ResultsView = ({
 
 // Main Component
 export function ProcessingQueue({ files, description, onComplete }: Props) {
-  const [state, setState] = useState<ProcessingState>({
-    stage: "idle",
-    progress: 0,
-    currentFile: "",
-    processedImages: [],
-    retryCount: 0,
-  });
-  const [datasetId, setDatasetId] = useState<string | null>(null);
-  const processingRef = useRef<ProcessingRef>({
-    isActive: false,
-    controller: null
-  });
+  const [state, dispatch] = useReducer(reducer, initialState);
   const { toast } = useToast();
+  const abortController = useRef<AbortController | null>(null);
+  const [datasetId, setDatasetId] = useState<string | null>(null);
 
-  const cleanup = useCallback(() => {
-    // Safely get the current ref and check if it exists
-    const ref = processingRef.current;
-    if (!ref) return;
-
-    // Mark as inactive first to prevent new operations
-    ref.isActive = false;
-
-    // Safely handle the controller
-    if (ref.controller) {
-      // Store controller locally to avoid any race conditions
-      const controller = ref.controller;
-      ref.controller = null; // Clear reference first
-
+  const cleanup = () => {
+    if (abortController.current?.signal && !abortController.current.signal.aborted) {
       try {
-        // Check if we can safely abort
-        if (controller && !controller.signal.aborted) {
-          controller.abort();
-        }
-      } catch (e) {
-        // Silently handle abort errors as they're expected during cleanup
-        if (!(e instanceof DOMException && e.name === 'AbortError')) {
-          console.error('Error during cleanup:', e);
-        }
-      }
-    }
-  }, []);
-
-  // Safe state update that checks if component is still mounted
-  const safeSetState = useCallback((
-    updater: (prev: ProcessingState) => ProcessingState
-  ) => {
-    if (processingRef.current.isActive) {
-      setState(updater);
-    }
-  }, []);
-
-  const handleError = useCallback((error: Error) => {
-    console.error('Processing error:', error);
-    // Only handle non-abort errors when we're still processing
-    if (error.name !== 'AbortError' && processingRef.current) {
-      setState(prev => ({
-        ...prev,
-        stage: "error",
-        error: error.message || "An unexpected error occurred",
-        retryCount: prev.retryCount + 1,
-      }));
-      toast({
-        title: "Processing Error",
-        description: error.message || "Failed to process images. Please try again.",
-        variant: "destructive",
-      });
-    }
-    cleanup();
-  }, [toast, cleanup]);
-
-  const analyzeImage = useCallback(async (file: ImageFile, signal: AbortSignal) => {
-    const MAX_RETRIES = 3;
-    let lastError: Error | null = null;
-
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      try {
-        const response = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            image: file.preview,
-            filename: file.name 
-          }),
-          signal,
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.details || 'Failed to analyze image');
-        }
-
-        const data = await response.json();
-        return data.description;
+        abortController.current.abort();
       } catch (error) {
-        lastError = error as Error;
-        if (error instanceof Error && error.name === 'AbortError') {
-          throw error;
-        }
-        if (attempt < MAX_RETRIES - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
-          continue;
+        // Ignore abort errors
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          console.error("Cleanup error:", error);
         }
       }
     }
+    abortController.current = null;
+  };
 
-    throw lastError || new Error('Failed to analyze image after multiple attempts');
-  }, []);
-
-  const createDataset = useCallback(async (signal: AbortSignal) => {
-    safeSetState(prev => ({
-      ...prev,
-      stage: "archiving",
-      progress: 0,
-      currentFile: "Creating dataset archive...",
-    }));
-
-    try {
-      // Validate files first
-      const validFiles = files.filter(file => {
-        if (!file.file || !(file.file instanceof File)) {
-          console.error(`Invalid file object for ${file.name}`);
-          return false;
-        }
-        return true;
-      });
-
-      if (validFiles.length === 0) {
-        throw new Error('No valid files to process');
-      }
-
-      // Create FormData with validated files
-      const formData = new FormData();
-      validFiles.forEach(file => {
-        try {
-          formData.append('images', file.file);
-        } catch (error) {
-          console.error(`Error appending file ${file.name}:`, error);
-        }
-      });
-      
-      // Add description and analyses
-      formData.append('description', description || '');
-      
-      const analyses = state.processedImages
-        .filter(img => validFiles.some(f => f.name === img.name))
-        .map(img => ({
-          filename: img.name,
-          description: img.description
-        }));
-        
-      if (analyses.length === 0) {
-        throw new Error('No valid image analyses to process');
-      }
-      
-      formData.append('analyses', JSON.stringify(analyses));
-
-      const response = await fetch('/api/process', {
-        method: 'POST',
-        body: formData,
-        signal,
-      });
+  const analyzeImage = async (file: ImageFile): Promise<string> => {
+    const response = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        image: file.preview,
+        filename: file.name 
+      }),
+      signal: abortController.current?.signal,
+    });
 
     if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage = 'Failed to create dataset';
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.details || errorData.error || errorMessage;
-        } catch {
-          errorMessage = errorText || errorMessage;
-        }
-        throw new Error(errorMessage);
-    }
-      
-    let result;
-    try {
-      result = await response.json();
-    } catch (error) {
-      throw new Error('Invalid response format from server');
+      const data = await response.json();
+      throw new Error(data.details || 'Failed to analyze image');
     }
 
+    const data = await response.json();
+    return data.description;
+  };
+
+  const createDataset = async (): Promise<string> => {
+    const formData = new FormData();
+    
+    // Add files to FormData
+    for (const file of files) {
+      if (file.file instanceof File) {
+        formData.append('images', file.file);
+      }
+    }
+    
+    // Add metadata
+    formData.append('description', description);
+    formData.append('analyses', JSON.stringify(
+      state.processedImages.map(img => ({
+        filename: img.name,
+        description: img.description
+      }))
+    ));
+
+    const response = await fetch('/api/process', {
+      method: 'POST',
+      body: formData,
+      signal: abortController.current?.signal,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(errorData.details || errorData.error || 'Failed to create dataset');
+      } catch {
+        throw new Error(errorText || 'Failed to create dataset');
+      }
+    }
+
+    const result = await response.json();
     if (!result?.datasetId) {
       throw new Error('Server response missing dataset ID');
     }
 
-    if (processingRef.current.isActive) {
-      setDatasetId(result.datasetId);
-      safeSetState(prev => ({ 
-        ...prev, 
-        stage: "complete",
-        progress: 100,
-      }));
+    return result.datasetId;
+  };
 
-      toast({
-        title: "Success",
-        description: "Dataset created successfully!",
-      });
-    }
-  } catch (error) {
-    console.error('Error creating dataset:', error);
-    throw new Error(error instanceof Error ? error.message : 'Failed to create dataset');
-  }
-}, [files, description, state.processedImages, toast, safeSetState]);
-
-  const processImages = useCallback(async () => {
-    // Don't start if already processing
-    if (processingRef.current.isActive) {
-      return;
-    }
-
+  const processImages = async () => {
     cleanup();
-    const controller = new AbortController();
-    processingRef.current = {
-      isActive: true,
-      controller
-    };
-
+    abortController.current = new AbortController();
+    
     try {
-      safeSetState(() => ({
-        stage: "analyzing",
-        progress: 0,
-        currentFile: "",
-        processedImages: [],
-        retryCount: 0
-      }));
+      dispatch({ type: "START_PROCESSING" });
 
-      const processedResults: ProcessedImage[] = [];
       for (let i = 0; i < files.length; i++) {
-        // Check if processing was aborted
-        if (!processingRef.current.isActive) {
-          throw new Error('Processing was aborted');
-        }
-
         const file = files[i];
-        safeSetState(prev => ({
-          ...prev,
-          progress: (i / files.length) * 100,
-          currentFile: file.name
-        }));
+        const progress = ((i + 1) / files.length) * 100;
+        
+        dispatch({ 
+          type: "SET_PROGRESS",
+          file: file.name,
+          progress
+        });
 
-        try {
-          const description = await analyzeImage(file, controller.signal);
-          
-          // Skip if processing was aborted during API call
-          if (!processingRef.current.isActive) {
-            throw new Error('Processing was aborted');
-          }
-
-          processedResults.push({
+        const description = await analyzeImage(file);
+        
+        dispatch({
+          type: "ADD_PROCESSED_IMAGE",
+          image: {
             name: file.name,
             preview: file.preview,
             description
-          });
-
-          safeSetState(prev => ({
-            ...prev,
-            stage: "generating",
-            progress: ((i + 1) / files.length) * 100,
-            currentFile: file.name,
-            processedImages: [...processedResults]
-          }));
-        } catch (error) {
-          if (isAbortError(error) || !processingRef.current.isActive) {
-            throw error;
           }
-          console.error(`Error processing ${file.name}:`, error);
-          continue;
-        }
+        });
       }
 
-      if (processingRef.current.isActive && processedResults.length > 0) {
-        safeSetState(prev => ({ ...prev, stage: "archiving" }));
-        await createDataset(controller.signal);
-      }
+      dispatch({ type: "START_ARCHIVING" });
+      const newDatasetId = await createDataset();
+      
+      setDatasetId(newDatasetId);
+      dispatch({ type: "COMPLETE", datasetId: newDatasetId });
+      
+      toast({
+        title: "Success",
+        description: "Dataset created successfully!"
+      });
     } catch (error) {
-      if (error instanceof Error && !isAbortError(error)) {
-        handleError(error);
+      if (error instanceof Error && error.name !== "AbortError") {
+        dispatch({ 
+          type: "ERROR",
+          message: error.message || "An unexpected error occurred"
+        });
+        toast({
+          title: "Processing Error",
+          description: error.message || "Failed to process images",
+          variant: "destructive"
+        });
       }
-    } finally {
-      cleanup();
     }
-  }, [files, analyzeImage, createDataset, handleError, cleanup, safeSetState]);
+  };
 
   useEffect(() => {
-    let mounted = true;
-
-    // Only start processing if we have files and we're in idle state
-    if (files.length > 0 && state.stage === "idle" && mounted) {
-      processImages().catch(error => {
-        if (mounted && !isAbortError(error)) {
-          console.error('Processing error:', error);
-        }
-      });
+    if (files.length > 0 && state.stage === "idle") {
+      processImages();
     }
 
-    // Cleanup function
-    return () => {
-      mounted = false;
-      cleanup();
-    };
-  }, [files, state.stage, processImages, cleanup]);
+    return cleanup;
+  }, [files]);
 
   return (
     <div className="space-y-8">
