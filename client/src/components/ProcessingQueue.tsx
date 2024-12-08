@@ -151,7 +151,8 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
 
       toast({
         title: "Success",
-        description: "Dataset created successfully!"
+        description: `Dataset created successfully with ${processedImages.length} images!`,
+        duration: 5000
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
@@ -163,7 +164,8 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
       toast({
         title: "Processing Error",
         description: errorMessage,
-        variant: "destructive"
+        variant: "destructive",
+        duration: 5000
       });
     }
   };
@@ -201,7 +203,7 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
                 {state.progress < 100 ? "Analyzing images with AI vision model" : "Creating dataset archive"}
               </div>
               <div className="text-sm text-muted-foreground">
-                {state.processedImages.length} of {files.length} images processed
+                {Math.min(Math.floor((state.progress / 100) * files.length), files.length)} of {files.length} images processed
               </div>
             </div>
           </div>
