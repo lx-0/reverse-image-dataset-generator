@@ -209,47 +209,100 @@ export function ProcessingQueue({ files, description, onComplete }: Props) {
   }, []);
 
   const createDataset = useCallback(async (signal: AbortSignal) => {
-    setState(prev => ({
+    safeSetState(prev => ({
       ...prev,
       stage: "archiving",
       progress: 0,
       currentFile: "Creating dataset archive...",
     }));
 
-    const formData = new FormData();
-    files.forEach(file => formData.append('images', file.file));
-    formData.append('description', description);
-    
-    const analyses = state.processedImages.map(img => ({
-      filename: img.name,
-      description: img.description
-    }));
-    formData.append('analyses', JSON.stringify(analyses));
+    try {
+      // Validate files first
+      const validFiles = files.filter(file => {
+        if (!file.file || !(file.file instanceof File)) {
+          console.error(`Invalid file object for ${file.name}`);
+          return false;
+        }
+        return true;
+      });
 
-    const response = await fetch('/api/process', {
-      method: 'POST',
-      body: formData,
-      signal,
-    });
+      if (validFiles.length === 0) {
+        throw new Error('No valid files to process');
+      }
+
+      // Create FormData with validated files
+      const formData = new FormData();
+      validFiles.forEach(file => {
+        try {
+          formData.append('images', file.file);
+        } catch (error) {
+          console.error(`Error appending file ${file.name}:`, error);
+        }
+      });
+      
+      // Add description and analyses
+      formData.append('description', description || '');
+      
+      const analyses = state.processedImages
+        .filter(img => validFiles.some(f => f.name === img.name))
+        .map(img => ({
+          filename: img.name,
+          description: img.description
+        }));
+        
+      if (analyses.length === 0) {
+        throw new Error('No valid image analyses to process');
+      }
+      
+      formData.append('analyses', JSON.stringify(analyses));
+
+      const response = await fetch('/api/process', {
+        method: 'POST',
+        body: formData,
+        signal,
+      });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.details || 'Failed to create dataset');
+        const errorText = await response.text();
+        let errorMessage = 'Failed to create dataset';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.details || errorData.error || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
     }
-    
-    const result = await response.json();
-    setDatasetId(result.datasetId);
-    setState(prev => ({ 
-      ...prev, 
-      stage: "complete",
-      progress: 100,
-    }));
+      
+    let result;
+    try {
+      result = await response.json();
+    } catch (error) {
+      throw new Error('Invalid response format from server');
+    }
 
-    toast({
-      title: "Success",
-      description: "Dataset created successfully!",
-    });
-  }, [files, description, state.processedImages, toast]);
+    if (!result?.datasetId) {
+      throw new Error('Server response missing dataset ID');
+    }
+
+    if (processingRef.current.isActive) {
+      setDatasetId(result.datasetId);
+      safeSetState(prev => ({ 
+        ...prev, 
+        stage: "complete",
+        progress: 100,
+      }));
+
+      toast({
+        title: "Success",
+        description: "Dataset created successfully!",
+      });
+    }
+  } catch (error) {
+    console.error('Error creating dataset:', error);
+    throw new Error(error instanceof Error ? error.message : 'Failed to create dataset');
+  }
+}, [files, description, state.processedImages, toast, safeSetState]);
 
   const processImages = useCallback(async () => {
     // Don't start if already processing
