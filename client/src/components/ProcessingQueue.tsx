@@ -10,10 +10,11 @@ import type {
   ReverseImageGenerationResponse,
   ReverseImageGenerationMetadata,
 } from "../../../server/services/imageAnalysis";
+import type { Analysis, AnalyzeRequest } from "../../../server/types";
 
 interface Props {
   files: ImageFile[];
-  description: string;
+  context: string;
   model: string;
   onComplete?: () => void;
 }
@@ -23,9 +24,8 @@ type Stage = "idle" | "processing" | "complete" | "error";
 interface ProcessedImage {
   name: string;
   preview: string;
-  description: string;
+  processedImage: ReverseImageGenerationResponse;
   metadata: ReverseImageGenerationMetadata;
-  tags: string[];
 }
 
 interface GeneratedDescription {
@@ -45,12 +45,7 @@ interface State {
   error?: string;
 }
 
-export function ProcessingQueue({
-  files,
-  description,
-  model,
-  onComplete,
-}: Props) {
+export function ProcessingQueue({ files, context, model, onComplete }: Props) {
   const [state, setState] = useState<State>({
     stage: "idle",
     progress: 0,
@@ -93,9 +88,9 @@ export function ProcessingQueue({
         body: JSON.stringify({
           image: base64Data,
           filename: file.name,
-          context: description,
+          context,
           model,
-        }),
+        } as AnalyzeRequest),
       });
 
       if (!response.ok) {
@@ -130,18 +125,19 @@ export function ProcessingQueue({
         }
       });
 
-      formData.append("description", description);
+      formData.append("context", context);
       formData.append("model", model);
       formData.append(
         "analyses",
         JSON.stringify({
-          model: model,
-          images: processedImages.map((img) => ({
-            filename: img.name,
-            description: img.description,
-            metadata: img.metadata,
-            generatedTags: img.tags,
-          })),
+          analyses: processedImages.map(
+            (img) =>
+              ({
+                filename: img.name,
+                processedImage: img.processedImage,
+                metadata: img.metadata,
+              }) as Analysis,
+          ),
         }),
       );
 
@@ -217,7 +213,6 @@ export function ProcessingQueue({
 
         const { data: processedImage, metadata: processedImageMetadata } =
           await processImage(file);
-        console.log(`Generated description for ${file.name}:`, description);
 
         // Update state with new description
         setState((prevState) => ({
@@ -237,9 +232,8 @@ export function ProcessingQueue({
         processedImages.push({
           name: file.name,
           preview: file.preview,
-          description: processedImage.imageGenerationPrompt,
+          processedImage,
           metadata: processedImageMetadata,
-          tags: processedImage.imageTags,
         });
       }
 
@@ -319,13 +313,13 @@ export function ProcessingQueue({
             </div>
           ) : state.stage === "processing" ? (
             <div className="space-y-6">
-              {description && description.trim() !== "" && (
+              {context && context.trim() !== "" && (
                 <div className="bg-secondary/20 px-4 py-3 rounded-lg">
                   <div className="text-xs font-medium text-secondary-foreground/70 mb-1">
                     Context for Image Analysis:
                   </div>
                   <div className="text-sm text-secondary-foreground">
-                    {description}
+                    {context}
                   </div>
                 </div>
               )}
@@ -415,7 +409,21 @@ export function ProcessingQueue({
         datasetId &&
         state.processedImages.length > 0 && (
           <Card className="p-6">
-            <h2 className="text-2xl font-semibold mb-4">Processing Results</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-semibold">Processing Results</h2>
+              <div className="flex justify-end gap-4">
+                <Button variant="outline" onClick={onComplete}>
+                  Back to Upload
+                </Button>
+                <Button
+                  onClick={() =>
+                    window.open(`/api/datasets/${datasetId}`, "_blank")
+                  }
+                >
+                  Download Dataset
+                </Button>
+              </div>
+            </div>
             <div className="flex items-center gap-2 mb-4">
               <span className="text-sm font-medium text-muted-foreground">
                 Model:
@@ -424,14 +432,12 @@ export function ProcessingQueue({
                 {MODELS.find((m) => m.name === model)?.title || model}
               </span>
             </div>
-            {description && description.trim() !== "" && (
+            {context && context.trim() !== "" && (
               <div className="mb-6 p-3 bg-muted rounded-md border">
                 <div className="font-medium text-sm text-primary mb-1">
                   Context for Image Analysis:
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  {description}
-                </div>
+                <div className="text-sm text-muted-foreground">{context}</div>
               </div>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -446,10 +452,10 @@ export function ProcessingQueue({
                   </div>
                   <h3 className="font-semibold mb-2 text-sm">{image.name}</h3>
                   <p className="text-sm text-muted-foreground mb-2">
-                    {image.description}
+                    {image.processedImage.imageGenerationPrompt}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {image.tags.map((tag, tagIndex) => (
+                    {image.processedImage.imageTags.map((tag, tagIndex) => (
                       <span
                         key={tagIndex}
                         className="px-2 py-1 text-xs rounded-full bg-primary/10 text-primary"

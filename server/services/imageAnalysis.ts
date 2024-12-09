@@ -15,8 +15,20 @@ export type ReverseImageGenerationResponse = z.infer<
 >;
 
 export type ReverseImageGenerationMetadata = {
+  model: Model["name"];
   prompt: string;
   temperature: number;
+  seed: number;
+  /**
+   * This fingerprint represents the backend configuration that the model runs with.
+   *
+   * Can be used in conjunction with the seed request parameter to understand when
+   * backend changes have been made that might impact determinism.
+   */
+  systemFingerprint?: string;
+  /**
+   * Usage statistics for the completion request.
+   */
   usage?: OpenAI.Completions.CompletionUsage;
 };
 
@@ -46,6 +58,7 @@ export async function generateDescription(
 
     const prompt = `You are a image generation prompt engineer. Your task is to generate datasets to train a diffusion model to generate certain images when referring to the user-provided context in the input prompt.\n\nPlease describe the provided image in detail, focusing on visual elements that would be important for regenerating a similar image. If people are involved, also describe their visible emotions and feelings. Also generate tags matching the description. ${hasContext ? `Integrate the user-provided context in the description and the tags while describing the image, as this is important for the image generation. If characters, places or things are mentioned in the user-provided context, ensure to include them in the tags list as well. ` : ""}Then generate an optimized short prompt which would be used to generate the image${hasContext ? `, but also integrate the user-provided context in the generated prompt as well` : ""}. Be specific but concise!${hasContext ? `\n\nThe user-provided context is:\n\n\`\`\`context\n${context}\n\`\`\`\n\nIMPORTANT: Ensure to integrate the user-provided context in the image description, the tags and the image generation prompt. The generated image generation prompt is later used to train the image generation model to produce similar images using the user-provided context. Therefore, while generating the image description, the tags and the image generation prompt, refer to all entities mentioned in the user-provided context EXPLICITLY BY THEIR GIVEN NAMES, AVOIDING GENERIC PHRASES like "a person named [name]."!!` : ""}`;
     const temperature = 0.7;
+    const seed = 42;
 
     console.log("Prompt:", { prompt, temperature });
 
@@ -73,7 +86,9 @@ export async function generateDescription(
         "reverse_image_dataset_generation",
       ),
       // max_tokens: 200,
-      ...(model !== "o1-mini" && { temperature }), // 'o1-mini' only supports default temperature 1.0
+      temperature,
+      seed,
+      // ...(model !== "o1-mini" && { temperature }), // 'o1-mini' only supports default temperature 1.0
     });
 
     const reverse_image_dataset_generation = response.choices[0].message;
@@ -83,7 +98,14 @@ export async function generateDescription(
       return {
         ok: true,
         data: reverse_image_dataset_generation.parsed,
-        metadata: { prompt, temperature, usage: response.usage },
+        metadata: {
+          model,
+          prompt,
+          temperature,
+          seed,
+          usage: response.usage,
+          systemFingerprint: response.system_fingerprint,
+        },
       };
     } else if (reverse_image_dataset_generation.refusal) {
       // handle refusal

@@ -17,14 +17,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ImageFile } from "../lib/types";
 import { MODELS, type Model } from "../lib/models";
 
 export function App() {
   const [files, setFiles] = useState<ImageFile[]>([]);
-  const [description, setDescription] = useState("");
+  const [context, setContext] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedModel, setSelectedModel] =
     useState<Model["name"]>("gpt-4o-mini");
@@ -45,7 +45,7 @@ export function App() {
   const handleComplete = () => {
     setIsProcessing(false);
     setFiles([]);
-    setDescription("");
+    setContext("");
   };
 
   return (
@@ -73,13 +73,13 @@ export function App() {
               <pre className="text-sm bg-background/80 p-2 rounded overflow-x-auto">
                 {`{
   "task_type": "text_to_image",
-  "instruction": "A serene mountain landscape with snow-capped peaks...",
+  "instruction": "A serene mountain landscape with snow-capped peaks",
   "input_images": [],
   "output_image": "landscape_001.jpg"
 }
 {
   "task_type": "text_to_image",
-  "instruction": "A vibrant sunset over the ocean with waves...",
+  "instruction": "A vibrant sunset over the ocean with waves",
   "input_images": [],
   "output_image": "sunset_002.jpg"
 }`}
@@ -157,8 +157,8 @@ export function App() {
                     <Textarea
                       id="description"
                       placeholder="Enter a description for your dataset..."
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
+                      value={context}
+                      onChange={(e) => setContext(e.target.value.trim())}
                       className="min-h-[100px]"
                     />
                     <div className="bg-muted/50 border rounded-lg p-3">
@@ -196,7 +196,7 @@ export function App() {
       ) : (
         <ProcessingQueue
           files={files}
-          description={description}
+          context={context}
           model={selectedModel}
           onComplete={handleComplete}
         />

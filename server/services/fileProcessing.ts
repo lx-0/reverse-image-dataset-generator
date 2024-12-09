@@ -4,7 +4,6 @@ import archiver from "archiver";
 import type { DatasetEntry, DatasetMetadata } from "../types";
 
 export async function processImages(
-  files: Express.Multer.File[],
   datasetEntries: DatasetEntry[],
   metadata: DatasetMetadata,
   tempDir: string,
@@ -19,14 +18,6 @@ export async function processImages(
   // Create metadata file
   const metadataPath = path.join(tempDir, "metadata.jsonl");
   await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 4));
-
-  // Copy images to temp directory
-  await Promise.all(
-    files.map(async (file, index) => {
-      const destPath = path.join(tempDir, file.originalname);
-      await fs.copyFile(file.path, destPath);
-    }),
-  );
 
   // Create ZIP file
   return new Promise((resolve, reject) => {
