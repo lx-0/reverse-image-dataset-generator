@@ -1,11 +1,11 @@
 import express from "express";
+import fs from "fs/promises";
 import multer from "multer";
 import path from "path";
-import fs from "fs/promises";
 import { processImages } from "./services/fileProcessing.js";
 import { generateDescription } from "./services/imageAnalysis.js";
-import type { Analysis, Model, ProcessRequest } from "./types";
-import { extractMessageFromUnknownError } from "./utils";
+import type { Analysis, Model, ProcessRequest } from "./types.js";
+import { extractMessageFromUnknownError } from "./utils.js";
 
 // Configure multer for handling file uploads
 
@@ -64,7 +64,7 @@ export function registerRoutes(app: express.Express) {
       try {
         console.log(`Generating description for image: ${filename}`);
         return generateDescription(model, context, base64Data).then((r) =>
-          res.json(r),
+          res.json(r)
         );
       } catch (error) {
         console.error("Error analyzing image:", error);
@@ -85,7 +85,7 @@ export function registerRoutes(app: express.Express) {
       const files = req.files as Express.Multer.File[];
       const { context, model } = req.body as ProcessRequest["body"];
       const { analyses }: ProcessRequest["body"]["analyses"] = JSON.parse(
-        req.body.analyses,
+        req.body.analyses
       );
 
       if (!files || files.length === 0) {
@@ -103,7 +103,7 @@ export function registerRoutes(app: express.Express) {
       // Use the provided analyses
       const entries = files.map((file) => {
         const analysis = analyses.find(
-          (a: Analysis) => a.filename === file.originalname,
+          (a: Analysis) => a.filename === file.originalname
         );
         return {
           task_type: "text_to_image" as const,
@@ -124,14 +124,14 @@ export function registerRoutes(app: express.Express) {
         files.map(async (file, index) => {
           const destPath = path.join(tempDir, file.originalname);
           await fs.copyFile(file.path, destPath);
-        }),
+        })
       );
 
       // Create ZIP file with JSONL and images
       const zipBuffer = await processImages(
         entries,
         { model: model as Model["name"], context, analyses },
-        tempDir,
+        tempDir
       );
 
       // Generate unique dataset ID
@@ -157,7 +157,9 @@ export function registerRoutes(app: express.Express) {
     } catch (error) {
       console.error("Failed to process images:", error);
       res.status(500).json({
-        error: `Failed to process images: ${extractMessageFromUnknownError(error)}`,
+        error: `Failed to process images: ${extractMessageFromUnknownError(
+          error
+        )}`,
         details: error instanceof Error ? error.message : String(error),
       });
     }
@@ -170,7 +172,7 @@ export function registerRoutes(app: express.Express) {
       const datasetPath = path.join(
         "uploads",
         "datasets",
-        `dataset_${datasetId}.zip`,
+        `dataset_${datasetId}.zip`
       );
 
       if (

@@ -8,6 +8,7 @@
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
 [![Express.js](https://img.shields.io/badge/Express.js-404D59?style=for-the-badge)](https://expressjs.com/)
 [![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)](https://openai.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 
 <img src="docs/assets/preview.png" alt="Reverse Image Dataset Generator Preview" width="800px" />
 
@@ -30,6 +31,7 @@
 - Node.js (v18 or later)
 - NPM (v8 or later)
 - OpenAI API key
+- PostgreSQL database ([setup guide](docs/database.md))
 
 ### Installation
 
@@ -59,7 +61,7 @@ OPENAI_API_KEY=your_api_key_here
 npm run dev
 ```
 
-Visit `http://localhost:5000` to start using the application.
+Visit `http://localhost:5050` to start using the application.
 
 ## 💡 Use Cases
 
@@ -117,6 +119,7 @@ Example output format:
 
 - **Frontend**: React + TypeScript + Shadcn UI
 - **Backend**: Express.js + Multer
+- **Database**: PostgreSQL ([configuration guide](docs/database.md))
 - **AI**: OpenAI GPT-4o series models
 - **Storage**: File system with organized structure
 
@@ -149,5 +152,107 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🔗 Links
 
 - [Documentation](docs/README.md)
+- [Database Guide](docs/database.md)
 - [API Reference](docs/api.md)
 - [Contributing Guidelines](CONTRIBUTING.md)
+
+# Docker Setup
+
+## Port Configuration
+
+The application uses the following default ports:
+- `5050`: Main application server
+- `5173`: Vite development server (development only)
+- `5432`: PostgreSQL database
+
+To avoid port conflicts, you can customize these ports in your environment files:
+
+```env
+PORT=5050            # Main application port
+VITE_PORT=5173      # Vite dev server (development only)
+DB_PORT=5432        # PostgreSQL port
+```
+
+## Development Environment
+
+1. Copy environment files:
+
+   ```bash
+   cp .env.development.example .env.development
+   ```
+
+2. Adjust ports if needed in `.env.development`
+
+3. Start development environment:
+
+   ```bash
+   docker compose -f docker-compose.dev.yml --env-file .env.development up --build
+   ```
+
+The development environment includes:
+- Hot reloading for both frontend and backend
+- PostgreSQL database with automatic schema initialization
+- Vite dev server for frontend development
+
+## Production Environment
+
+1. Copy environment files:
+
+   ```bash
+   cp .env.production.example .env.production
+   ```
+
+2. Update production environment variables:
+   - Set secure PostgreSQL password
+   - Configure OpenAI API key
+   - Adjust ports if needed
+   - Adjust other settings as needed
+
+3. Start production environment:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+   ```
+
+The production environment includes:
+- Optimized production build
+- PostgreSQL database with persistent storage
+- Automatic container restart
+- Health checks for all services
+
+## Database Management
+
+The database is automatically initialized with the schema and migrations when the container starts. To manage the database:
+
+1. Generate new migrations:
+
+   ```bash
+   docker compose -f docker-compose.dev.yml --env-file .env.development exec app npm run db:generate
+   ```
+
+2. Apply migrations:
+
+   ```bash
+   docker compose -f docker-compose.dev.yml --env-file .env.development exec app npm run db:push
+   ```
+
+3. Access database:
+
+   ```bash
+   docker compose -f docker-compose.dev.yml --env-file .env.development exec db psql -U postgres
+   ```
+
+## Environment Variables
+
+See `.env.development.example` and `.env.production.example` for required environment variables.
+
+## Volumes
+
+- Development: `pgdata_dev` - PostgreSQL data (development)
+- Production: `pgdata_prod` - PostgreSQL data (production)
+
+## Ports
+
+- Server: 5050
+- Vite Dev Server: 5173 (development only)
+- PostgreSQL: 5432

@@ -101,7 +101,7 @@ Common HTTP status codes:
 
 ```bash
 # Analyze single image
-curl -X POST http://localhost:5000/api/analyze \
+curl -X POST http://localhost:5050/api/analyze \
   -H "Content-Type: application/json" \
   -d '{
     "image": "base64_image_data",
@@ -111,14 +111,14 @@ curl -X POST http://localhost:5000/api/analyze \
   }'
 
 # Process multiple images
-curl -X POST http://localhost:5000/api/process \
+curl -X POST http://localhost:5050/api/process \
   -F "images[]=@image1.jpg" \
   -F "images[]=@image2.jpg" \
   -F "context=Product photos" \
   -F "model=gpt-4o"
 
 # Download dataset
-curl -O http://localhost:5000/api/datasets/1234567890
+curl -O http://localhost:5050/api/datasets/1234567890
 ```
 
 ### JavaScript

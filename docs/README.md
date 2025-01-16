@@ -6,7 +6,15 @@
 - [Installation](#installation)
 - [Usage Guide](#usage-guide)
 - [Configuration](#configuration)
+- [Database Setup](database.md)
 - [Troubleshooting](#troubleshooting)
+
+## Core Documentation
+
+- [Database Configuration and Management](database.md) - Complete guide for database setup and management
+- API Reference (coming soon)
+- Component Documentation (coming soon)
+- Deployment Guide (coming soon)
 
 ## Overview
 
@@ -77,9 +85,11 @@ Add custom tags to supplement auto-generated ones:
 | Variable | Description | Required | Default |
 |----------|-------------|----------|---------|
 | OPENAI_API_KEY | OpenAI API key | Yes | - |
-| PORT | Server port | No | 5000 |
+| PORT | Server port | No | 5050 |
 | MAX_FILE_SIZE | Max file size (MB) | No | 10 |
 | BATCH_SIZE | Processing batch size | No | 5 |
+
+For database-specific environment variables, see the [Database Configuration Guide](database.md#configuration).
 
 ### Model Configuration
 
@@ -90,6 +100,16 @@ Available models and their characteristics:
 | gpt-4o-mini | Fast | Good | Rapid prototyping |
 | gpt-4o | Medium | Better | Production use |
 | gpt-4o-2024-11-20 | Slow | Best | High-quality datasets |
+
+## Database Setup
+
+For detailed database setup and configuration instructions, see our [Database Configuration Guide](database.md).
+
+Key topics covered:
+- Environment configuration
+- Schema management
+- Migration commands
+- Provider-specific setup (Supabase, Neon, Local PostgreSQL)
 
 ## Troubleshooting
 
@@ -109,3 +129,6 @@ Available models and their characteristics:
    - Clear browser cache
    - Check disk space
    - Try different browser
+
+4. **Database Issues**
+   - See [Database Troubleshooting Guide](database.md#troubleshooting)

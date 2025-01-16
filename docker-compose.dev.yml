@@ -1,0 +1,52 @@
+services:
+  app:
+    container_name: reverse-image-dataset-generator-dev
+    image: reverse-image-dataset-generator-dev
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "${PORT:-5050}:5050"
+      - "${VITE_PORT:-5173}:5173" # Vite dev server
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    env_file:
+      - .env.development
+    networks:
+      - app-network
+    # depends_on:
+    #   db:
+    #     condition: service_healthy
+
+  # Uncomment the following section if you want to use a local PostgreSQL instance
+  # instead of a cloud database (like Supabase)
+  #
+  # db:
+  #   container_name: reverse-image-dataset-generator-db-dev
+  #   image: postgres:16-alpine
+  #   ports:
+  #     - "5432:5432"  # Default PostgreSQL port
+  #   environment:
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: postgres
+  #     POSTGRES_DB: postgres
+  #   volumes:
+  #     - pgdata_dev:/var/lib/postgresql/data
+  #     - ./db/migrations:/docker-entrypoint-initdb.d
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U postgres"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 5
+
+# Uncomment if using local PostgreSQL
+# volumes:
+#   pgdata_dev:
+
+networks:
+  app-network:
+    name: reverse-image-dataset-generator-dev
+    driver: bridge

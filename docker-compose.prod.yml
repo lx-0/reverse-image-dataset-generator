@@ -1,0 +1,66 @@
+services:
+  nginx:
+    container_name: reverse-image-dataset-generator-frontend-prod
+    image: reverse-image-dataset-generator-frontend-prod
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      target: nginx
+    ports:
+      - "80:80"
+    depends_on:
+      app:
+        condition: service_started
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  app:
+    container_name: reverse-image-dataset-generator-backend-prod
+    image: reverse-image-dataset-generator-backend-prod
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      target: node
+    env_file:
+      - .env.production
+    expose:
+      - "5050"
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5050/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# Uncomment below to use local PostgreSQL instead of Supabase
+# db:
+#   container_name: reverse-image-dataset-generator-db-prod
+#   image: postgres:16
+#   environment:
+#     POSTGRES_USER: ${DB_USER:-postgres}
+#     POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+#     POSTGRES_DB: ${DB_NAME:-postgres}
+#   volumes:
+#     - postgres_data:/var/lib/postgresql/data
+#   ports:
+#     - "5432:5432"  # Default PostgreSQL port
+#   healthcheck:
+#     test: ["CMD-SHELL", "pg_isready -U postgres"]
+#     interval: 5s
+#     timeout: 5s
+#     retries: 5
+#   networks:
+#     - app-network
+
+# Uncomment if using local PostgreSQL
+# volumes:
+#   postgres_data:
+
+networks:
+  app-network:
+    name: reverse-image-dataset-generator-prod
+    driver: bridge

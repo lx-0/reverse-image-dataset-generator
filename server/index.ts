@@ -1,13 +1,13 @@
-import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes.js";
-import { setupVite, serveStatic } from "./vite.js";
-import { createServer } from "http";
 import cors from "cors";
 import "dotenv/config";
+import express, { NextFunction, type Request, Response } from "express";
 import * as fs from "fs/promises";
+import { createServer } from "http";
 import * as path from "path";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
+import { registerRoutes } from "./routes.js";
+import { serveStatic, setupVite } from "./vite.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -106,7 +106,7 @@ async function main() {
     }
 
     // Start server
-    const PORT = parseInt(process.env.PORT || "5000", 10);
+    const PORT = parseInt(process.env.PORT || "5050", 10);
     server.listen(PORT, "0.0.0.0", () => {
       log(`Server running on port ${PORT}`);
       log(`Environment: ${app.get("env")}`);
@@ -122,7 +122,7 @@ async function main() {
     console.error("Server initialization error:", error);
     console.error(
       "Error details:",
-      error instanceof Error ? error.stack : String(error),
+      error instanceof Error ? error.stack : String(error)
     );
     process.exit(1);
   }
