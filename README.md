@@ -8,6 +8,7 @@
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
 [![Express.js](https://img.shields.io/badge/Express.js-404D59?style=for-the-badge)](https://expressjs.com/)
 [![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)](https://openai.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 
 <img src="docs/assets/preview.png" alt="Reverse Image Dataset Generator Preview" width="800px" />
 
@@ -30,6 +31,7 @@
 - Node.js (v18 or later)
 - NPM (v8 or later)
 - OpenAI API key
+- PostgreSQL database ([setup guide](docs/database.md))
 
 ### Installation
 
@@ -117,6 +119,7 @@ Example output format:
 
 - **Frontend**: React + TypeScript + Shadcn UI
 - **Backend**: Express.js + Multer
+- **Database**: PostgreSQL ([configuration guide](docs/database.md))
 - **AI**: OpenAI GPT-4o series models
 - **Storage**: File system with organized structure
 
@@ -149,5 +152,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🔗 Links
 
 - [Documentation](docs/README.md)
+- [Database Guide](docs/database.md)
 - [API Reference](docs/api.md)
 - [Contributing Guidelines](CONTRIBUTING.md)
