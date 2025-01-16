@@ -5,3 +5,17 @@ server/public
 vite.config.ts.*
 *.tar.gz
 uploads/*
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.development
+.env.production
+
+# CUSTOM
+.notes/
+.project/
+data/

@@ -1,110 +1,153 @@
-# Reverse Image Dataset Generator
+# Reverse Image Dataset Generator 🖼️ → 📝
 
-A specialized tool that automates the creation of text-to-image training datasets by performing reverse prompt generation on input images. Using GPT-4 Vision, it analyzes images and generates optimized text-to-image prompts, making it ideal for fine-tuning image generation models like OmniGen. The tool creates standardized datasets that include both the original images and their corresponding generated prompts, streamlining the process of creating high-quality training data.
+> Create high-quality training datasets for image generation models by automatically generating optimized prompts from your images using advanced GPT models.
 
-## Features
+<div align="center">
 
-- **Automated Prompt Generation**: Leverages GPT-4 Vision to analyze images and generate optimized text-to-image prompts
-- **Reverse Engineering Descriptions**: Creates detailed image descriptions suitable for training image generation models
-- **Context-Aware Analysis**: Incorporates user-provided context to generate more relevant and specific prompts
-- **Batch Processing**: Efficiently handles multiple images simultaneously with real-time progress tracking
-- **Smart Tagging System**: Automatically generates relevant tags to enhance dataset organization and searchability
-- **Standardized Export**: Creates properly formatted datasets ready for model fine-tuning
-- **Interactive Preview**: Visual interface for reviewing generated prompts, descriptions, and tags alongside images
-- **JSONL Format**: Exports data in the standard JSONL format required for fine-tuning workflows
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![Express.js](https://img.shields.io/badge/Express.js-404D59?style=for-the-badge)](https://expressjs.com/)
+[![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)](https://openai.com/)
 
-## Tech Stack
+<img src="docs/assets/preview.png" alt="Reverse Image Dataset Generator Preview" width="800px" />
 
-- **Frontend**: React with TypeScript
-- **Backend**: Express.js
-- **Styling**: Tailwind CSS + Shadcn UI
-- **Image Processing**: Multer for handling file uploads
-- **AI Integration**: OpenAI GPT-4 Vision API
-- **Build Tool**: Vite
+</div>
 
-## Prerequisites
+## ✨ Features
 
-Before running the application, make sure you have:
+- 🤖 **AI-Powered Analysis**: Automatically generate optimized prompts using GPT models
+- 🎯 **Context-Aware**: Include custom context to guide prompt generation
+- 📦 **Batch Processing**: Handle multiple images simultaneously
+- 🏷️ **Smart Tagging**: Auto-generate relevant tags for better organization
+- 📤 **Standard Format**: Export datasets in JSONL format ready for fine-tuning
+- 👀 **Live Preview**: Real-time visualization of generated prompts and tags
+- 🔄 **Progress Tracking**: Monitor batch processing with detailed progress updates
+
+## 🚀 Quick Start
+
+### Prerequisites
+
 - Node.js (v18 or later)
 - NPM (v8 or later)
-- An OpenAI API key with GPT-4 Vision access
+- OpenAI API key
 
-## Setup
+### Installation
 
-1. Clone the repository
-2. Install dependencies:
+1. Clone and install dependencies:
+
 ```bash
+git clone https://github.com/yourusername/reverse-image-dataset-generator.git
+cd reverse-image-dataset-generator
 npm install
 ```
 
-3. Create a `.env` file in the root directory with the following variables:
+2. Set up your environment:
+
+```bash
+cp .env.example .env
+```
+
+3. Add your OpenAI API key to `.env`:
+
 ```env
 OPENAI_API_KEY=your_api_key_here
 ```
 
 4. Start the development server:
+
 ```bash
 npm run dev
 ```
 
-The application will be available at `http://localhost:5000`
+Visit `http://localhost:5000` to start using the application.
 
-## Usage
+## 💡 Use Cases
 
-1. **Upload Images**:
-   - Click the upload area or drag and drop images
-   - Select multiple images if needed
-   - Provide optional context for better descriptions
+### Fine-Tuning Image Generation Models
 
-2. **Processing**:
-   - Images will be automatically processed using GPT-4 Vision
-   - View real-time progress and AI-generated content
-   - For each image, the system generates:
-     - A detailed recognition description
-     - An optimized text-to-image generation prompt
-     - Relevant semantic tags for categorization
-     - Visual preview with generated content
+- Create custom training datasets for models like OmniGen
+- Generate high-quality prompts from existing image collections
+- Maintain consistency in prompt style across datasets
 
-3. **Dataset Creation and Format**:
-   - Review generated descriptions and tags
-   - The tool creates a ZIP archive containing:
-     - A `dataset.jsonl` file with prompts and metadata
-     - An `images` directory with all original images
-   
-   The JSONL file format follows the standard text-to-image fine-tuning structure:
-   ```jsonl
-   {"task_type": "text_to_image", "instruction": "Generated prompt", "input_images": [], "output_image": "image_filename.jpg"}
-   ```
-   
-   Each line in the JSONL file corresponds to one image and contains:
-   - `task_type`: Always "text_to_image" for this dataset type
-   - `instruction`: The AI-generated prompt describing the image
-   - `output_image`: The filename of the corresponding image in the images directory
+### Dataset Management
 
-   This format is specifically designed for fine-tuning image generation models like OmniGen, ensuring compatibility with standard training pipelines.
+- Convert image libraries into structured training data
+- Add context-aware descriptions to image collections
+- Generate semantic tags for better organization
 
-## Environment Variables
+### Content Creation
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| OPENAI_API_KEY | Your OpenAI API key | Yes |
-| PORT | Server port (default: 5000) | No |
+- Generate optimized prompts for existing images
+- Create consistent image-prompt pairs
+- Build reference libraries for prompt engineering
 
-## Development
+## 📖 How It Works
 
-The project follows a modern web application structure:
-- `/client`: Frontend React application
-- `/server`: Express.js backend
-- `/uploads`: Temporary storage for uploads and datasets
+1. **Upload Images**
+   - Drag & drop or select multiple images
+   - Add optional context for better descriptions
+   - Preview selected images instantly
 
-## Contributing
+2. **AI Processing**
+   - Images analyzed by GPT models
+   - Context-aware prompt generation
+   - Automatic tag extraction
+   - Real-time progress tracking
+
+3. **Dataset Creation**
+   - JSONL file generation with prompts
+   - Original images included
+   - ZIP archive for easy download
+   - Standard format for fine-tuning
+
+Example output format:
+
+```jsonl
+{
+  "task_type": "text_to_image",
+  "instruction": "a serene landscape with snow-capped mountains reflecting in a crystal-clear lake at sunset",
+  "input_images": [],
+  "output_image": "mountain_lake.jpg"
+}
+```
+
+## 🛠️ Technical Details
+
+### Architecture
+
+- **Frontend**: React + TypeScript + Shadcn UI
+- **Backend**: Express.js + Multer
+- **AI**: OpenAI GPT-4o series models
+- **Storage**: File system with organized structure
+
+### Available Models
+
+- `gpt-4o-mini`: Fast, efficient processing
+- `gpt-4o`: Balanced performance
+- `gpt-4o-2024-11-20`: Latest model with enhanced capabilities
+
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## License
+## 📝 License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🌟 Next Steps
+
+- [ ] Add user authentication
+- [ ] Implement dataset management UI
+- [ ] Add advanced image processing options
+- [ ] Optimize batch processing
+- [ ] Add dataset search and filtering
+
+## 🔗 Links
+
+- [Documentation](docs/README.md)
+- [API Reference](docs/api.md)
+- [Contributing Guidelines](CONTRIBUTING.md)
